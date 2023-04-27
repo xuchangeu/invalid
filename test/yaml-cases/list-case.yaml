@@ -1,0 +1,17 @@
+data:
+  map:
+    map2:
+      map2key1 : map2key1value
+  list:
+    - value1
+    - value2
+    - value3
+  list2:
+    - o1_1 : k1_1
+      o1_2 : k1_2
+      o1_3 : k1_3
+
+    - o2_1 : o2_1
+      o2_2 : o2_2
+      o2_3 : o2_3
+

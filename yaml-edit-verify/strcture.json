@@ -1,0 +1,27 @@
+{
+  "fields" : [
+    {
+      "key": "data",
+      "valType": "map",
+      "optional": false,
+      "fields" : [
+        {
+          "key": "map",
+          "valType" : "map",
+          "optional" : false
+        },
+        {
+          "key": "list",
+          "valType" : "list",
+          "optional" : false
+        },
+        {
+          "key": "list2",
+          "valType" : "list",
+          "optional" : false,
+          ""
+        }
+      ]
+    }
+  ]
+}
