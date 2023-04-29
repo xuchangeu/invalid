@@ -2,156 +2,152 @@ package invalid
 
 import (
 	"errors"
+	"fmt"
 	"gopkg.in/yaml.v3"
 )
 
 type ruleInt interface {
-	mustConstraint() []string
-	optionalConstraint() []string
+	restructure() error
+	GetType() RuleType
 }
 
-type Rule struct {
-	Node       *yaml.Node
-	fieldRules []*FieldRule
-}
+//func NewRule(r io.Reader) (*Rule, error) {
+//	by, err := io.ReadAll(r)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	node := &yaml.Node{}
+//	err = yaml.Unmarshal(by, node)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	rule := Rul
+//
+//	return &rule, nil
+//}
 
-func (r *Rule) Decode() error {
-	if r.Node == nil {
-		return errors.New("none yaml nodes available")
+//type RuleRoot struct {
+//	by         []byte
+//	node       *yaml.Node
+//	ruleIntMap map[string]ruleInt
+//	ruleInList []ruleInt
+//}
+
+//func (r *RuleRoot) addRule(key string, rule ruleInt) {
+//	if r.ruleIntMap == nil {
+//		r.ruleIntMap = make(map[string]ruleInt, 0)
+//	}
+//	r.ruleIntMap[key] = rule
+//
+//	if r.ruleInList == nil {
+//		r.ruleInList = make([]ruleInt, 0)
+//	}
+//	r.ruleInList = append(r.ruleInList, rule)
+//}
+//
+//func (r *RuleRoot) addRules(ruleMap map[string]ruleInt) {
+//	for k, v := range ruleMap {
+//		r.addRule(k, v)
+//	}
+//}
+//
+//func (r *RuleRoot) ValidYAML(root *YAMLRoot) {
+//
+//}
+//
+//func (r *RuleRoot) GetFieldRules() map[string]ruleInt {
+//	return r.ruleIntMap
+//}
+//
+//func (r *RuleRoot) Restructure() error {
+//	if r.node == nil {
+//		return errors.New("none yaml nodes available")
+//	}
+//
+//	if len(r.node.Content) == 1 && r.node.Kind == yaml.DocumentNode {
+//		r.node = r.node.Content[0]
+//	}
+//
+//	for i := 0; i < len(r.node.Content)/2; i++ {
+//		k := r.node.Content[i*2]
+//		v := r.node.Content[i*2+1]
+//		rule, err := resolveRule(k, v)
+//		if err != nil {
+//			return err
+//		}
+//		err = rule.restructure()
+//		if err != nil {
+//			return err
+//		}
+//		r.addRule(k.Value, rule)
+//	}
+//
+//	return nil
+//
+//}
+
+func resolveRule(keyNode, valueNode *yaml.Node) (ruleInt, error) {
+
+	if !validMapNode(valueNode) {
+		return nil, errors.New(fmt.Sprintf("value node must be map : [%s]", keyNode.Value))
 	}
 
-	return nil
-}
-
-type FieldRule struct {
-}
-
-func (rule *FieldRange) mustConstraint() []string {
-	//implement me
-	return nil
-}
-
-func (rule *FieldRange) optionalConstraint() []string {
-	//implement me
-	return nil
-}
-
-type ObjFieldRule struct {
-	FieldRule
-}
-
-func (rule *ObjFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *ObjFieldRule) optionalConstraint() []string {
-	return []string{ConstraintKeyKReg}
-}
-
-type StrFieldRule struct {
-	FieldRule
-}
-
-func (rule *StrFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *StrFieldRule) optionalConstraint() []string {
-	return []string{
-		deepFieldWithDot([]string{ConstraintKeyLength, ConstraintKeyMin}),
-		deepFieldWithDot([]string{ConstraintKeyLength, ConstraintKeyMax}),
-		ConstraintKeyReg,
+	k, v, e := GetKVNodeByKeyName(ConstraintKeyType, valueNode.Content)
+	if !(k != nil && v != nil && e) {
+		return nil, errors.New(fmt.Sprintf("type not found : [%s]", keyNode.Value))
 	}
+
+	switch RuleType(v.Value) {
+	case RuleTypeArr:
+		return &ArrFieldRule{
+			Rule: Rule{
+				ruleType:  RuleTypeArr,
+				keyNode:   keyNode,
+				valueNode: valueNode,
+			}}, nil
+	case RuleTypeSeq, RuleTypeAny:
+		//TODO : tbc
+	case RuleTypeObj:
+		return &ObjFieldRule{
+			Rule: Rule{
+				ruleType:  RuleTypeObj,
+				keyNode:   keyNode,
+				valueNode: valueNode,
+			}}, nil
+	case RuleTypeInt:
+		return &IntFieldRule{Rule{
+			ruleType:  RuleTypeInt,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}, nil
+	case RuleTypeStr:
+		return &StrFieldRule{
+			Rule: Rule{
+				ruleType:  RuleTypeStr,
+				keyNode:   keyNode,
+				valueNode: valueNode,
+			}}, nil
+	case RuleTypeBool:
+		return &BoolFieldRule{Rule{
+			ruleType:  RuleTypeBool,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}, nil
+	case RuleTypeFloat:
+		return &FloatFieldRule{Rule{
+			ruleType:  RuleTypeFloat,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}, nil
+	case RuleTypeNil:
+		return &NilFieldRule{Rule{
+			ruleType:  RuleTypeNil,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}, nil
+
+	}
+	return nil, errors.New(fmt.Sprintf("type not match : [%s]", keyNode.Value))
 }
-
-type BoolFieldRule struct {
-	FieldRule
-}
-
-func (rule *BoolFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *BoolFieldRule) optionalConstraint() []string {
-	return nil
-}
-
-type ArrFieldRule struct {
-	FieldRule
-}
-
-func (rule *ArrFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *ArrFieldRule) optionalConstraint() []string {
-	return []string{ConstraintKeyConstraint}
-}
-
-type NumFieldRule struct {
-	FieldRule
-}
-
-func (rule *NumFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *NumFieldRule) optionalConstraint() []string {
-	return nil
-}
-
-type IntFieldRule struct {
-	FieldRule
-}
-
-func (rule *IntFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *IntFieldRule) optionalConstraint() []string {
-	return nil
-}
-
-type NilFieldRule struct {
-	FieldRule
-}
-
-func (rule *NilFieldRule) mustConstraint() []string {
-	return []string{ConstraintKeyType}
-}
-
-func (rule *NilFieldRule) optionalConstraint() []string {
-	return nil
-}
-
-type RuleFieldType string
-
-// basic type of schema
-const (
-	//single types
-	RuleTypeNil     = "$nil"
-	RuleTypeAny     = "$any"
-	RuleTypeBoolean = "$bool"
-	RuleTypeInt     = "$int"
-	RuleTypeFloat   = "$float"
-	RuleTypeString  = "$str"
-
-	//collection types
-	TypeObj = "$obj" //an object value contains sub-fields inside, mostly it's a map
-	TypeSeq = "$seq" //a list with value in any type
-	TypeArr = "$arr"
-)
-
-const (
-	//constraint keys
-	ConstraintKeyType       = "type"       //type definition
-	ConstraintKeyRequired   = "required"   //fields must exist,  exists under type $obj
-	ConstraintKeyOptional   = "optional"   //fields which are optional,  exists under type $obj alike required
-	ConstraintKeyLength     = "length"     //length of character, valid under type $obj
-	ConstraintKeyReg        = "reg"        //regexp pattern written in string, valid in type $str
-	ConstraintKeyMin        = "min"        //minimum length of string, valid in type $str
-	ConstraintKeyMax        = "max"        //maximum length of string, valid in type $str
-	ConstraintKeyKReg       = "key-reg"    //a regexp written in string to perform key key validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-reg exists under type $obj
-	ConstraintKeyConstraint = "constraint" //a type constraint for type $arr , valid for type $arr
-
-)

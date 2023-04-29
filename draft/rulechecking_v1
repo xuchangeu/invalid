@@ -1,0 +1,38 @@
+//func (r *Rule) doCheckYAML(rule ruleInt, field *Field) {
+//	a := rule.(*FieldRule)
+//	key := a.getKeyName()
+//	log.Printf("checking : [%s]\n", key)
+//	if a.getKeyName() != field.keyNode.Value {
+//		log.Printf("field [%s] should exist, but not", a.getKeyName())
+//	} else {
+//		switch rule.(type) {
+//		case *IntFieldRule:
+//			if field.valueNode.Tag != "!!int" {
+//				log.Printf("[%s] : format int, value node is not integer\n", key)
+//			}
+//		case *BoolFieldRule:
+//			if field.valueNode.Tag != "!!bol" {
+//				log.Printf("[%s] : format boolean, value node is not boolean\n", key)
+//			}
+//		case *FloatFieldRule:
+//			if field.valueNode.Tag != "!!float" {
+//				log.Printf("[%s] : format , value node is not float\n", key)
+//			}
+//		case *StrFieldRule:
+//			v := rule.(*StrFieldRule)
+//			if field.valueNode.Tag != "!!key" {
+//				log.Printf("[%s] : format , value node is not str\n", key)
+//			}
+//
+//			if v.max > 0 && v.min > 0 {
+//				if !(len(field.valueNode.Value) > int(v.min) && len(field.valueNode.Value) < int(v.max)) {
+//					log.Printf("[%s] : length of [%s] should be in range [%d, %d]\n", key, field.valueNode.Value, v.min, v.max)
+//				}
+//			}
+//		case *ArrFieldRule:
+//			if field.valueNode.Tag != "!!arr" {
+//				log.Printf("[%s] : format , value node is not str\n", key)
+//			}
+//		}
+//	}
+//}

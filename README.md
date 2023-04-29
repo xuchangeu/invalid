@@ -29,7 +29,8 @@
 - `$seq`  : sequence block in YAML specification, `$seq` can contain any type as content
 - `$range` : range of number or int
 - `of` : constraint of valid value in enumeration value, valid in type `$str` ,  `$int` ,`$num` or `$any`
-- external constraint reference, feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option for schema.
+- external reference, feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option.
+- Implicit variable declaration
 - inspire me plz… 💬
 
 ### Implementation Schedule

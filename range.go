@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-// FieldRange struct represent the specific location of the character of beginning and ending in fields for both field key and field value.
+// FieldRange struct represent the specific location of the character of beginning and ending in ruleMap for both field key and field value.
 // It describes a single line of range.For multiline literal value, it contains a list of FieldRange object.
 type FieldRange struct {
 	Line        int
@@ -46,7 +46,7 @@ func merge(origin []*FieldRange) ([]*FieldRange, error) {
 	return r, nil
 }
 
-// be sure a,b's same line
+// be aware that a&b should in same line
 func appendColumn(a, b *FieldRange) (*FieldRange, error) {
 	if a.Line != b.Line {
 		return nil, errors.New("line of range for merging must be in same line")

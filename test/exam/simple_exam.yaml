@@ -1,0 +1,25 @@
+---
+required:
+  map:
+    type: "$obj"
+    key-reg: "^x\\x\\-"
+    required:
+      map2:
+        type: "$obj"
+        required:
+          strVal:
+            type: "$str"
+            reg: "^x\\x\\-"
+            length:
+              max: 20
+              min: 10
+      list:
+        type: "$arr"
+        constraint: "$str"
+      map4:
+        type: "$obj"
+    optional:
+      map5:
+        type: "$obj"
+        strVal2:
+          type: "$str"

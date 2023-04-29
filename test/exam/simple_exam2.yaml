@@ -1,0 +1,23 @@
+---
+map:
+  $type: "$obj"
+  $required: true
+  $key-reg: ".*"
+  map2:
+    $type: "$obj"
+    strVal:
+      $type: "$str"
+      $reg: ".*"
+      $length:
+        $max: 20
+        $min: 10
+    list:
+      $type: "$arr"
+      $constraint: "$str"
+    map4:
+      $type: "$obj"
+  map5:
+    $optional: true
+    $type: "$obj"
+    strVal2:
+      $type: "$str"

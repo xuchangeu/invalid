@@ -1,0 +1,412 @@
+package invalid
+
+import (
+	"errors"
+	"fmt"
+	"gopkg.in/yaml.v3"
+	"strconv"
+)
+
+type ruleInt interface {
+	mustConstraint() []string
+	optionalConstraint() []string
+	selfConvert() ([]*FieldRule, error)
+	decode() (*ruleInt, error)
+}
+
+type Rule struct {
+	by         []byte
+	Node       *yaml.Node
+	fieldRules map[string]*ruleInt
+}
+
+func (r *Rule) addRules(rules map[string]*ruleInt) {
+	if r.fieldRules == nil {
+		r.fieldRules = make(map[string]*ruleInt, 0)
+	}
+	for k, v := range rules {
+		r.fieldRules[k] = v
+	}
+}
+
+func (r *Rule) addRule(key string, rule *ruleInt) {
+	if r.fieldRules == nil {
+		r.fieldRules = make(map[string]*ruleInt, 0)
+	}
+	r.fieldRules[key] = rule
+}
+
+func (r *Rule) Decode() error {
+	if r.Node == nil {
+		return errors.New("none yaml nodes available")
+	}
+
+	if len(r.Node.Content) == 1 && r.Node.Content[0].Kind == yaml.MappingNode {
+		r.Node = r.Node.Content[0]
+	}
+
+	if len(r.Node.Content) < 2 {
+		return errors.New("rule parse error, rule not in properly format")
+	}
+
+	for i := 0; i < len(r.Node.Content)/2; i++ {
+		keyNode := r.Node.Content[i*2]
+		valueNode := r.Node.Content[i*2+1]
+		rule := resolveRuleByType(FieldValidType(keyNode.Value), keyNode, valueNode, false)
+		result, err := rule.decode()
+		if err != nil {
+			return err
+		}
+		r.addRule(keyNode.Value, result)
+	}
+	return nil
+}
+
+type FieldRule struct {
+	required  bool
+	keyNode   *yaml.Node
+	valueNode *yaml.Node
+	validType FieldValidType
+	fields    map[string]*ruleInt
+}
+
+func (rule *FieldRule) addRules(rules map[string]*ruleInt) {
+	if rule.fields == nil {
+		rule.fields = make(map[string]*ruleInt, 0)
+	}
+	for k, v := range rules {
+		rule.fields[k] = v
+	}
+}
+
+func (rule *FieldRule) addRule(key string, r *ruleInt) {
+	if rule.fields == nil {
+		rule.fields = make(map[string]*ruleInt, 0)
+	}
+	rule.fields[key] = r
+}
+
+func (rule *FieldRule) decode() (*ruleInt, error) {
+	result := make(map[string]*ruleInt, 0)
+	content := rule.valueNode.Content
+	for i := 0; i < len(content)/2; i++ {
+		keyNode := content[i*2]
+		valueNode := content[i*2+1]
+		//required && optional field
+		if explicitlyRequired(keyNode) || explicitlyOptional(keyNode) {
+			r, err := rule.decode()
+			if err != nil {
+				return nil, err
+			}
+			rule.addRule(keyNode.Value, r)
+			result[keyNode.Value] = r
+
+		} else {
+			node, exist := resolveNodeByKey(ConstraintKeyType, valueNode.Content)
+			if node == nil && exist == false {
+				return nil, errors.New(fmt.Sprintf("resolve node by key error : %s", keyNode.Value))
+			}
+
+			r := resolveRuleByType(FieldValidType(node.Value), keyNode, valueNode, false)
+			allKeys := make([]string, 0)
+			for _, v := range valueNode.Content {
+				allKeys = append(allKeys, v.Value)
+			}
+			if err := haveMustConstraint(r.mustConstraint(), allKeys); err != nil {
+				return nil, err
+			}
+
+		}
+	}
+	return result, nil
+}
+
+func haveMustConstraint(a, b []string) error {
+	for _, v := range b {
+		if contains(a, v) {
+			return nil
+		}
+	}
+	return errors.New(fmt.Sprintf("parse format error ,missing key [%s]", a))
+}
+
+func (rule *FieldRule) mustConstraint() []string {
+	//implement me
+	return nil
+}
+
+func (rule *FieldRule) optionalConstraint() []string {
+	//implement me
+	return nil
+}
+
+func (rule *FieldRule) selfConvert() ([]*FieldRule, error) {
+	//implement me
+	return nil, nil
+}
+
+type ObjFieldRule struct {
+	FieldRule
+	keyRegExp string
+}
+
+func (rule *ObjFieldRule) shouldJump() bool {
+	c, exist := resolveNodeByKey(ConstraintKeyKReg, rule.valueNode.Content)
+	if c != nil && exist {
+		//save reg exp
+		rule.keyRegExp = rule.valueNode.Value
+		return true
+	}
+	return false
+}
+
+func (rule *ObjFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *ObjFieldRule) optionalConstraint() []string {
+	return []string{ConstraintKeyKReg, ConstraintKeyRequired, ConstraintKeyOptional}
+}
+
+type ArrFieldRule struct {
+	FieldRule
+	constraint string
+}
+
+func (rule *ArrFieldRule) shouldJump() bool {
+	return false
+}
+
+func (rule *ArrFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *ArrFieldRule) optionalConstraint() []string {
+	return []string{ConstraintKeyConstraint}
+}
+
+type StrFieldRule struct {
+	FieldRule
+	max uint   //max length of field
+	min uint   //min length of field
+	reg string //regexp of field
+}
+
+func (rule *StrFieldRule) shouldJump() bool {
+	//TODO: this code snippet will be refine later
+	l, exist := resolveNodeByKey(ConstraintKeyLength, rule.valueNode.Content)
+	if l != nil && exist {
+		min, exist := resolveNodeByKey(ConstraintKeyMin, l.Content)
+		if min != nil && exist && min.Tag == "!!int" {
+			i, err := strconv.Atoi(min.Value)
+			if err != nil {
+				rule.min = uint(i)
+			}
+		}
+
+		max, exist := resolveNodeByKey(ConstraintKeyMax, l.Content)
+		if max != nil && exist && max.Tag == "!!int" {
+			i, err := strconv.Atoi(max.Value)
+			if err != nil {
+				rule.max = uint(i)
+			}
+		}
+
+		reg, exist := resolveNodeByKey(ConstraintKeyReg, l.Content)
+		if reg != nil && exist && reg.Tag == "!!str" {
+			rule.reg = reg.Value
+		}
+
+	}
+	return false
+}
+
+func (rule *StrFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *StrFieldRule) optionalConstraint() []string {
+	return []string{
+		deepFieldWithDot([]string{ConstraintKeyLength, ConstraintKeyMin}),
+		deepFieldWithDot([]string{ConstraintKeyLength, ConstraintKeyMax}),
+		ConstraintKeyReg,
+	}
+}
+
+func (rule *StrFieldRule) selfConvert() ([]*FieldRule, error) {
+	return []*FieldRule{}, nil
+}
+
+type BoolFieldRule struct {
+	FieldRule
+}
+
+func (rule *BoolFieldRule) shouldJump() bool {
+	return false
+}
+
+func (rule *BoolFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *BoolFieldRule) optionalConstraint() []string {
+	return nil
+}
+
+func (rule *BoolFieldRule) selfConvert() ([]*FieldRule, error) {
+
+	return []*FieldRule{}, nil
+}
+
+type FloatFieldRule struct {
+	FieldRule
+}
+
+func (rule *FloatFieldRule) shouldJump() bool {
+	return false
+}
+
+func (rule *FloatFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *FloatFieldRule) optionalConstraint() []string {
+	return nil
+}
+
+func (rule *FloatFieldRule) selfConvert() ([]*FieldRule, error) {
+
+	return []*FieldRule{}, nil
+}
+
+type IntFieldRule struct {
+	FieldRule
+}
+
+func (rule *IntFieldRule) shouldJump() bool {
+	return false
+}
+
+func (rule *IntFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *IntFieldRule) optionalConstraint() []string {
+	return nil
+}
+
+func (rule *IntFieldRule) selfConvert() ([]*FieldRule, error) {
+
+	return []*FieldRule{}, nil
+}
+
+type NilFieldRule struct {
+	FieldRule
+}
+
+func (rule *NilFieldRule) shouldJump() bool {
+	return false
+}
+
+func (rule *NilFieldRule) mustConstraint() []string {
+	return []string{ConstraintKeyType}
+}
+
+func (rule *NilFieldRule) optionalConstraint() []string {
+	return nil
+}
+
+func (rule *NilFieldRule) selfConvert() ([]*FieldRule, error) {
+
+	return []*FieldRule{}, nil
+}
+
+func resolveRuleByType(t FieldValidType, keyNode, valueNode *yaml.Node, required bool) ruleInt {
+	switch t {
+	case RuleTypeArr:
+		return &ArrFieldRule{
+			FieldRule: FieldRule{
+				required:  required,
+				keyNode:   keyNode,
+				valueNode: valueNode,
+			}}
+	case RuleTypeSeq, RuleTypeAny:
+		//TODO : tbc
+	case RuleTypeObj:
+		return &ObjFieldRule{
+			FieldRule: FieldRule{
+				required:  required,
+				keyNode:   keyNode,
+				valueNode: valueNode,
+			}}
+	case RuleTypeInt:
+		return &IntFieldRule{FieldRule{
+			required:  required,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}
+	case RuleTypeStr:
+		return &StrFieldRule{
+			FieldRule: FieldRule{
+				required:  required,
+				keyNode:   keyNode,
+				valueNode: valueNode,
+			}}
+	case RuleTypeBoolean:
+		return &BoolFieldRule{FieldRule{
+			required:  required,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}
+	case RuleTypeFloat:
+		return &FloatFieldRule{FieldRule{
+			required:  required,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}
+	case RuleTypeNil:
+		return &NilFieldRule{FieldRule{
+			required:  required,
+			keyNode:   keyNode,
+			valueNode: valueNode,
+		}}
+	}
+
+	return nil
+}
+
+type FieldValidType string
+
+// basic type of schema
+const (
+	//single types
+	RuleTypeNil     FieldValidType = "$nil"
+	RuleTypeAny                    = "$any"
+	RuleTypeBoolean                = "$bool"
+	RuleTypeInt                    = "$int"
+	RuleTypeFloat                  = "$float"
+	RuleTypeStr                    = "$str"
+
+	//collection types
+	RuleTypeObj FieldValidType = "$obj" //an object value contains sub-fields inside, mostly it's a map
+	RuleTypeSeq                = "$seq" //a list with value in any type
+	RuleTypeArr                = "$arr"
+)
+
+const (
+	//constraint keys
+	ConstraintKeyType       = "type"       //type definition
+	ConstraintKeyRequired   = "required"   //fields must exist,  exists under type $obj
+	ConstraintKeyOptional   = "optional"   //fields which are optional,  exists under type $obj alike required
+	ConstraintKeyLength     = "length"     //length of character, valid under type $obj
+	ConstraintKeyReg        = "reg"        //regexp pattern written in string, valid in type $str
+	ConstraintKeyMin        = "min"        //minimum length of string, valid in type $str
+	ConstraintKeyMax        = "max"        //maximum length of string, valid in type $str
+	ConstraintKeyKReg       = "key-reg"    //a regexp written in string to perform key validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-reg exists under type $obj
+	ConstraintKeyConstraint = "constraint" //a type constraint for type $arr , valid for type $arr
+)
+
+var jumpKey = []string{
+	ConstraintKeyType, ConstraintKeyRequired, ConstraintKeyOptional, ConstraintKeyLength,
+	ConstraintKeyReg, ConstraintKeyMin, ConstraintKeyMax, ConstraintKeyKReg, ConstraintKeyConstraint,
+}

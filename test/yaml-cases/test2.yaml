@@ -2,11 +2,7 @@ paths:
   slices:
     - a : 1
       b : 2
-      c : |
-          these are some folded
-          text
-        
-
-    - e : 4
-      f : 5
-      g : 6
+      c : 3
+    - a : 4
+      b : 5
+      c : 6
