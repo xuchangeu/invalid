@@ -39,7 +39,7 @@ package test
 //	rule, err := loadTestRule([]string{"exam", "simple_exam2.yaml"})
 //	assert.Nil(t, err)
 //	assert.NotNil(t, r)
-//	err = rule.Restructure()
+//	err = rule.restructure()
 //	assert.Nil(t, err)
 //
 //	rule.ValidYAML(r)

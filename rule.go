@@ -61,7 +61,7 @@ type ruleInt interface {
 //	return r.ruleIntMap
 //}
 //
-//func (r *RuleRoot) Restructure() error {
+//func (r *RuleRoot) restructure() error {
 //	if r.node == nil {
 //		return errors.New("none yaml nodes available")
 //	}
