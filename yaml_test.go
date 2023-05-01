@@ -2,6 +2,7 @@ package invalid
 
 import (
 	"github.com/stretchr/testify/assert"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,8 +10,17 @@ import (
 
 func TestYAML(t *testing.T) {
 	testSimpleCase(t)
+	log.Println("===================")
 	testK8SService(t)
+	log.Println("===================")
 	testVariousValue(t)
+}
+
+func BenchmarkYAML(b *testing.B) {
+	file, _ := os.Open(filepath.Join([]string{"test", "yaml-cases", "various_value.yaml"}...))
+	for i := 0; i < b.N; i++ {
+		NewYAML(file)
+	}
 }
 
 func testVariousValue(t *testing.T) {
@@ -152,7 +162,7 @@ func testVariousValue(t *testing.T) {
 	assert.NotNil(t, tr2)
 	assert.EqualValues(t, "yes", tr2.Value())
 	assert.EqualValues(t, FieldKindScalar, tr2.Kind())
-	assert.EqualValues(t, ValueTypeBool, tr2.ValueType())
+	assert.EqualValues(t, ValueTypeStr, tr2.ValueType())
 
 }
 

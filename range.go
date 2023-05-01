@@ -2,61 +2,105 @@ package invalid
 
 import (
 	"errors"
+	"gopkg.in/yaml.v3"
 	"math"
-	"sort"
+	"strings"
 )
 
-// FieldRange struct represent the specific location of the character of beginning and ending in ruleMap for both field key and field value.
-// It describes a single line of range.For multiline literal value, it contains a list of FieldRange object.
-type FieldRange struct {
-	Line        int
-	ColumnStart int
-	ColumnEnd   int
+type Line struct {
+	Line        uint
+	ColumnStart uint
+	ColumnEnd   uint
 }
 
-// merge determine the position according to multiple FieldRange objects.
-// func merge ranges in same line with `ColumnStart` and `ColumnEnd` in proper calculation.
-//
-//	eg,. [{FieldRange{Line:1,ColumnStart 10, ColumnEnd : 20}}, {FieldRange{Line:1,ColumnStart 21, ColumnEnd : 30}}] merged into
-//	[{FieldRange{Line:1,ColumnStart 10, ColumnEnd : 30}}}]
-//
-// merge sort result by line number
-func merge(origin []*FieldRange) ([]*FieldRange, error) {
-	m := make(map[int]*FieldRange, 0)
-	r := make([]*FieldRange, 0)
-	for _, v := range origin {
-		ran, find := m[v.Line]
-		if find {
-			result, err := appendColumn(ran, v)
-			if err != nil {
-				return nil, err
-			} else {
-				m[v.Line] = result
-			}
-		} else {
-			m[v.Line] = v
+func NewLineByYAMLNode(node *yaml.Node) (*Line, error) {
+	if strings.Contains(node.Value, "\n") {
+		return nil, errors.New("string parameter must not contains break line")
+	}
+
+	c := uint(len(node.Value))
+	if node.Style == yaml.DoubleQuotedStyle || node.Style == yaml.SingleQuotedStyle {
+		c += 2
+	}
+
+	return &Line{
+		Line:        uint(node.Line),
+		ColumnStart: uint(node.Column),
+		ColumnEnd:   uint(node.Column) + c,
+	}, nil
+}
+
+func NewRange(l1, l2 *Line) Range {
+	if l1.Line < l2.Line {
+		return Range{
+			Start: l1,
+			End:   l2,
+		}
+	} else if l1.Line == l2.Line {
+
+		start := math.Min(float64(l1.ColumnStart), float64(l2.ColumnStart))
+		end := math.Max(float64(l1.ColumnEnd), float64(l2.ColumnEnd))
+
+		return Range{
+			Start: &Line{
+				Line:        l1.Line,
+				ColumnStart: uint(start),
+				ColumnEnd:   uint(end),
+			},
+			End: &Line{
+				Line:        l1.Line,
+				ColumnStart: uint(start),
+				ColumnEnd:   uint(end),
+			},
+		}
+
+	} else {
+		return Range{
+			Start: l2,
+			End:   l1,
 		}
 	}
-	for _, v := range m {
-		r = append(r, v)
-	}
-	sort.SliceStable(r, func(i, j int) bool {
-		return r[i].Line < r[j].Line
-	})
-	return r, nil
 }
 
-// be aware that a&b should in same line
-func appendColumn(a, b *FieldRange) (*FieldRange, error) {
-	if a.Line != b.Line {
-		return nil, errors.New("line of range for merging must be in same line")
+// Range
+type Range struct {
+	Start *Line
+	End   *Line
+}
+
+func (r *Range) expend(r2 *Range) *Range {
+
+	var start, end *Line
+	if r.Start.Line < r2.Start.Line {
+		start = r.Start
+	} else if r.Start.Line == r2.Start.Line {
+		minStart := math.Min(float64(r.Start.ColumnStart), float64(r2.Start.ColumnStart))
+		maxEnd := math.Max(float64(r.Start.ColumnEnd), float64(r2.Start.ColumnEnd))
+		start = &Line{
+			Line:        r.Start.Line,
+			ColumnStart: uint(minStart),
+			ColumnEnd:   uint(maxEnd),
+		}
+	} else {
+		start = r2.Start
 	}
-	min := math.Min(float64(a.ColumnStart), float64(b.ColumnEnd))
-	max := math.Max(float64(a.ColumnEnd), float64(b.ColumnEnd))
-	f := &FieldRange{
-		Line:        a.Line,
-		ColumnStart: int(min),
-		ColumnEnd:   int(max),
+
+	if r.End.Line < r2.End.Line {
+		end = r2.End
+	} else if r.End.Line == r2.End.Line {
+		minStart := math.Min(float64(r.End.ColumnStart), float64(r2.End.ColumnStart))
+		maxEnd := math.Max(float64(r.End.ColumnEnd), float64(r2.End.ColumnEnd))
+		end = &Line{
+			Line:        r.End.Line,
+			ColumnStart: uint(minStart),
+			ColumnEnd:   uint(maxEnd),
+		}
+	} else {
+		end = r.End
 	}
-	return f, nil
+
+	return &Range{
+		Start: start,
+		End:   end,
+	}
 }

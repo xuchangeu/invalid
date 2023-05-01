@@ -1,6 +1,9 @@
 package invalid
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
@@ -30,22 +33,41 @@ const (
 	ValueTypeArr   ValueType = "$arr"
 )
 
-// FieldInt Field interface
-type FieldInt interface {
-	restructure() error
+// Field interface
+type Field interface {
+	restructure(sibling *yaml.Node) error
+	getValueRange() *Range
 	Key() string
 	Value() string
 	ValueType() ValueType
 	Kind() FieldKind
-	Fields() []FieldInt
-	Get(key string) FieldInt
-	KeyRange() []*FieldRange
-	ValueRange() []*FieldRange
-	position() error
-	AddField(key string, fieldInt FieldInt)
+	Fields() []Field
+	Get(key string) Field
+	KeyRange() *Range
+	ValueRange() *Range
+	AddField(key string, field Field)
 }
 
-func NewYAML(r io.Reader) (FieldInt, error) {
+var lines []string
+
+func readLines(by []byte) []string {
+	lines = []string{}
+	buffer := bytes.NewBuffer(by)
+	rd := bufio.NewReader(buffer)
+	i := 0
+	for {
+		b, _, err := rd.ReadLine()
+		if err != nil && err == io.EOF {
+			break
+		} else {
+			lines = append(lines, string(b))
+			i++
+		}
+	}
+	return lines
+}
+
+func NewYAML(r io.Reader) (Field, error) {
 	by, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -57,19 +79,26 @@ func NewYAML(r io.Reader) (FieldInt, error) {
 		return nil, err
 	}
 
-	f, e := NewYamlField(nil, node.Content[0])
+	lines = readLines(by)
+
+	if len(node.Content) < 1 {
+		return nil, errors.New("document must have at least one field")
+	}
+	docNode := node.Content[0]
+
+	f, e := NewYamlField(nil, docNode)
 	if e != nil {
 		return nil, e
 	}
-	e = f.restructure()
+	e = f.restructure(nil)
 	if e != nil {
 		return nil, e
 	}
 	return f, nil
 }
 
-func NewYamlField(keyNode, valueNode *yaml.Node) (FieldInt, error) {
-	var fieldInt FieldInt
+func NewYamlField(keyNode, valueNode *yaml.Node) (Field, error) {
+	var fieldInt Field
 	if validMapNode(valueNode) {
 		fieldInt = &YAMLMappingField{YAMLField{
 			keyNode:   keyNode,
@@ -111,24 +140,33 @@ func NewYamlField(keyNode, valueNode *yaml.Node) (FieldInt, error) {
 }
 
 type YAMLField struct {
-	keyNode    *yaml.Node
-	valueNode  *yaml.Node
-	keyRange   []*FieldRange
-	valueRange []*FieldRange
-	key        string
-	value      string
-	valueType  ValueType
-	kind       FieldKind
-	style      yaml.Style
-	children   map[string]FieldInt
+	keyNode     *yaml.Node
+	valueNode   *yaml.Node
+	siblingNode *yaml.Node
+	keyRange    *Range
+	valueRange  *Range
+	key         string
+	value       string
+	valueType   ValueType
+	kind        FieldKind
+	style       yaml.Style
+	children    map[string]Field
 }
 
-func (f *YAMLField) restructure() error {
+func (f *YAMLField) restructure(sibling *yaml.Node) error {
+	//set properties
+	f.siblingNode = sibling
 	f.setKey()
 	f.setValue()
 	f.setKind()
 	f.setStyle()
 	f.setValueType()
+
+	//
+	err := f.setKeyRange()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -148,15 +186,15 @@ func (f *YAMLField) Kind() FieldKind {
 	return f.kind
 }
 
-func (f *YAMLField) Fields() []FieldInt {
-	result := make([]FieldInt, 0)
+func (f *YAMLField) Fields() []Field {
+	result := make([]Field, 0)
 	for _, v := range f.children {
 		result = append(result, v)
 	}
 	return result
 }
 
-func (f *YAMLField) Get(key string) FieldInt {
+func (f *YAMLField) Get(key string) Field {
 	field, exist := f.children[key]
 	if exist {
 		return field
@@ -164,15 +202,15 @@ func (f *YAMLField) Get(key string) FieldInt {
 	return nil
 }
 
-func (f *YAMLField) KeyRange() []*FieldRange {
+func (f *YAMLField) KeyRange() *Range {
 	return f.keyRange
 }
 
-func (f *YAMLField) ValueRange() []*FieldRange {
+func (f *YAMLField) ValueRange() *Range {
 	return f.valueRange
 }
 
-func (f *YAMLField) AddField(key string, field FieldInt) {
+func (f *YAMLField) AddField(key string, field Field) {
 	f.addField(key, field)
 }
 
@@ -236,62 +274,9 @@ func (f *YAMLField) setStyle() {
 	}
 }
 
-// make sure function called after all field fieldList filled
-func (f *YAMLField) position() error {
-	f.findKeyPosition()
-	f.findValuePosition()
-
-	if f.children != nil && len(f.children) > 0 {
-		for _, v := range f.children {
-			//v.(FieldInt).FindPosition()
-			err := v.position()
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (f *YAMLField) findKeyPosition() {
-	if f.keyNode != nil {
-		var l, cs, ce int
-		l = f.keyNode.Line
-		cs = f.keyNode.Column
-		ce = f.keyNode.Column + len(f.key)
-		f.keyRange = []*FieldRange{
-			{
-				Line:        l,
-				ColumnStart: cs,
-				ColumnEnd:   ce,
-			},
-		}
-	}
-}
-
-func (f *YAMLField) findValuePosition() {
-	// TODO: find the value position for folded-kind node,in which case node should find the sibling or next topper level node position to determinate itself.
-	if f.valueNode != nil {
-		var l, cs, ce int
-		l = f.valueNode.Column
-		cs = f.valueNode.Column
-		ce = f.valueNode.Column + len(f.value)
-
-		r1 := &FieldRange{
-			Line:        l,
-			ColumnStart: cs,
-			ColumnEnd:   ce,
-		}
-		f.keyRange = []*FieldRange{
-			r1,
-		}
-	}
-}
-
-func (f *YAMLField) addField(name string, child FieldInt) {
+func (f *YAMLField) addField(name string, child Field) {
 	if f.children == nil {
-		f.children = make(map[string]FieldInt)
+		f.children = make(map[string]Field)
 	}
 	f.children[name] = child
 }
@@ -303,8 +288,43 @@ func (f *YAMLField) sameKind() bool {
 			return false
 		}
 	}
-
 	return true
+}
+
+func (f *YAMLField) setKeyRange() error {
+	if f.keyNode == nil {
+		return nil
+	}
+	line, err := NewLineByYAMLNode(f.keyNode)
+	if err == nil && line != nil {
+		r := NewRange(line, line)
+		f.keyRange = &r
+	}
+	return nil
+}
+
+func (f *YAMLField) setValueRange(r *Range) {
+	f.valueRange = r
+}
+
+func (f *YAMLField) getValueRange() *Range {
+	//calc self range
+	if f.valueNode == nil {
+		return nil
+	}
+
+	if f.valueRange != nil {
+		return f.valueRange
+	}
+
+	line, err := NewLineByYAMLNode(f.valueNode)
+	if err == nil && line != nil {
+		r := NewRange(line, line)
+		f.setValueRange(&r)
+		return &r
+	}
+
+	return nil
 }
 
 // YAMLArrField represent an array field
@@ -316,28 +336,46 @@ func (field *YAMLArrField) findValuePosition() {
 	fmt.Println("sequence field find value position called")
 }
 
-func (field *YAMLArrField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLArrField) restructure(sibling *yaml.Node) error {
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}
-	//if field.sameKind() {
-	for i := 0; i < len(field.valueNode.Content); i++ {
+
+	//loop children
+	content := field.valueNode.Content
+	selfRange := field.getValueRange()
+	for i := 0; i < len(content); i++ {
 		// ruleList type of sequence is mapping
-		fieldInt, err := NewYamlField(nil, field.valueNode.Content[i])
+		fieldInt, err := NewYamlField(nil, content[i])
 		if err != nil {
 			return err
 		}
-		err = fieldInt.restructure()
+
+		//replace sib with parent sibling if node has no sibling
+		var sib *yaml.Node
+		if len(content) > i+1 {
+			sib = content[i+1]
+		}
+		if sib == nil {
+			sib = sibling
+		}
+
+		//call restructure recursively
+		err = fieldInt.restructure(sib)
 		if err != nil {
 			return err
 		}
+
+		//calc range
+		r := fieldInt.getValueRange()
+		selfRange = selfRange.expend(r)
+
+		//use string format of index as key since node inside list have no key item.
 		key := fmt.Sprintf("%d", i)
 		field.addField(key, fieldInt)
 	}
-	//} else {
-	//	return errors.New(fmt.Sprintf("array should have some type inside : [%s]", field.Key()))
-	//}
+	field.setValueRange(selfRange)
 
 	return nil
 }
@@ -347,26 +385,53 @@ type YAMLMappingField struct {
 	YAMLField
 }
 
-func (field *YAMLMappingField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLMappingField) restructure(sibling *yaml.Node) error {
+	//call parent restructure
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}
-	root := field.valueNode
-	for i := 0; i < len(root.Content)/2; i++ {
-		keyNode := root.Content[i*2]
-		valueNode := root.Content[i*2+1]
+
+	selfRange := field.getValueRange()
+	content := field.valueNode.Content
+	for i := 0; i < len(content)/2; i++ {
+		//paired key value nodes
+		keyNode := content[i*2]
+		valueNode := content[i*2+1]
+
+		//initialize field interface by nodes
 		fieldInt, err := NewYamlField(keyNode, valueNode)
 		if err != nil {
 			return err
 		}
 
-		err = fieldInt.restructure()
+		//resolve child sibling
+		var sib *yaml.Node
+		if len(content) > i*2+2 {
+			sib = content[i*2+2]
+		}
+		//the child use parent's sibling if child's sibling is nil
+		if sib == nil {
+			sib = sibling
+		}
+
+		//recursion of restructure
+		err = fieldInt.restructure(sib)
 		if err != nil {
 			return err
 		}
+
+		//resolve child's value range
+		r := fieldInt.getValueRange()
+		//log.Printf("solving -> %s , range -> strt : %d, %d %d, end : %d, %d, %d . value ==>%s", fieldInt.Key(), r.Start.Line,
+		//	r.Start.ColumnStart, r.Start.ColumnEnd, r.End.Line, r.End.ColumnStart, r.End.ColumnEnd,
+		//	lines[int(r.Start.Line)-1][int(r.Start.ColumnStart)-1:int(r.Start.ColumnEnd)-1])
+		selfRange = selfRange.expend(r)
+
+		//add field
 		field.addField(keyNode.Value, fieldInt)
 	}
+	field.setValueRange(selfRange)
 	return nil
 }
 
@@ -375,8 +440,8 @@ type YAMLStrField struct {
 	YAMLField
 }
 
-func (field *YAMLStrField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLStrField) restructure(sibling *yaml.Node) error {
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}
@@ -388,8 +453,8 @@ type YAMLBoolField struct {
 	YAMLField
 }
 
-func (field *YAMLBoolField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLBoolField) restructure(sibling *yaml.Node) error {
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}
@@ -401,8 +466,8 @@ type YAMLFloatField struct {
 	YAMLField
 }
 
-func (field *YAMLFloatField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLFloatField) restructure(sibling *yaml.Node) error {
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}
@@ -414,8 +479,8 @@ type YAMLIntField struct {
 	YAMLField
 }
 
-func (field *YAMLIntField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLIntField) restructure(sibling *yaml.Node) error {
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}
@@ -427,8 +492,8 @@ type YAMLNilField struct {
 	YAMLField
 }
 
-func (field *YAMLNilField) restructure() error {
-	err := field.YAMLField.restructure()
+func (field *YAMLNilField) restructure(sibling *yaml.Node) error {
+	err := field.YAMLField.restructure(sibling)
 	if err != nil {
 		return err
 	}

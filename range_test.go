@@ -2,84 +2,192 @@ package invalid
 
 import (
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 	"testing"
 )
 
 func TestRange(t *testing.T) {
-	r1 := &FieldRange{
-		Line:        1,
-		ColumnStart: 2,
-		ColumnEnd:   3,
-	}
+	testRange1(t)
+	testRangeExpend(t)
+	testRangeCross(t)
+	testSingleLineRange1(t)
+	testSingleLineRange2(t)
+}
 
-	r2 := &FieldRange{
-		Line:        1,
-		ColumnStart: 4,
-		ColumnEnd:   6,
-	}
+var testNode *yaml.Node
 
-	result, err := merge([]*FieldRange{r1, r2})
+func init() {
+	testNode = &yaml.Node{
+		Kind:   yaml.ScalarNode,
+		Style:  yaml.LiteralStyle,
+		Tag:    "!!str",
+		Value:  "who are you",
+		Line:   2,
+		Column: 3,
+	}
+}
+
+func testRange1(t *testing.T) {
+	l1, err := NewLineByYAMLNode(testNode)
 	assert.Nil(t, err)
-	assert.EqualValuesf(t, 1, len(result), "length of result is ：%d", len(result))
-	assert.EqualValuesf(t, 1, result[0].Line, "line of result is : %d", result[0].Line)
-	assert.EqualValuesf(t, 2, result[0].ColumnStart, "start column of result is : %d", result[0].ColumnStart)
-	assert.EqualValuesf(t, 6, result[0].ColumnEnd, "end column of result is : %d", result[0].ColumnEnd)
+	assert.EqualValues(t, 2, l1.Line)
+	assert.EqualValues(t, 3, l1.ColumnStart)
+	assert.EqualValues(t, 14, l1.ColumnEnd)
 
-	r1 = &FieldRange{
-		Line:        1,
-		ColumnStart: 3,
-		ColumnEnd:   6,
-	}
-
-	r2 = &FieldRange{
-		Line:        2,
-		ColumnStart: 5,
-		ColumnEnd:   8,
-	}
-
-	result, err = merge([]*FieldRange{r1, r2})
-	assert.Nil(t, err)
-	assert.EqualValuesf(t, 2, len(result), "length of result is ：%d", len(result))
-	assert.EqualValuesf(t, 1, result[0].Line, "line of result is : %d", result[0].Line)
-	assert.EqualValuesf(t, 3, result[0].ColumnStart, "start column of result is : %d", result[0].ColumnStart)
-	assert.EqualValuesf(t, 6, result[0].ColumnEnd, "end column of result is : %d", result[0].ColumnEnd)
-
-	assert.EqualValuesf(t, 2, result[1].Line, "line of result is : %d", result[1].Line)
-	assert.EqualValuesf(t, 5, result[1].ColumnStart, "start column of result is : %d", result[1].ColumnStart)
-	assert.EqualValuesf(t, 8, result[1].ColumnEnd, "end column of result is : %d", result[1].ColumnEnd)
-
-	r1 = &FieldRange{
-		Line:        1,
-		ColumnStart: 3,
-		ColumnEnd:   6,
-	}
-
-	r2 = &FieldRange{
-		Line:        2,
-		ColumnStart: 5,
-		ColumnEnd:   8,
-	}
-
-	r3 := &FieldRange{
-		Line:        1,
-		ColumnStart: 8,
-		ColumnEnd:   10,
-	}
-
-	r4 := &FieldRange{
-		Line:        2,
+	l2 := Line{
+		Line:        5,
 		ColumnStart: 10,
-		ColumnEnd:   20,
+		ColumnEnd:   15,
 	}
 
-	result, err = merge([]*FieldRange{r1, r2, r3, r4})
-	assert.Nil(t, err)
-	assert.EqualValuesf(t, 2, len(result), "length of result is ：%d", len(result))
-	assert.EqualValuesf(t, 1, result[0].Line, "line of result is : %d", result[0].Line)
-	assert.EqualValuesf(t, 3, result[0].ColumnStart, "start column of result is : %d", result[0].ColumnStart)
-	assert.EqualValuesf(t, 10, result[0].ColumnEnd, "end column of result is : %d", result[0].ColumnEnd)
+	r1 := NewRange(l1, &l2)
+	assert.EqualValues(t, 2, r1.Start.Line)
+	assert.EqualValues(t, 3, r1.Start.ColumnStart)
+	assert.EqualValues(t, 14, r1.Start.ColumnEnd)
+	assert.EqualValues(t, 5, r1.End.Line)
+	assert.EqualValues(t, 10, r1.End.ColumnStart)
+	assert.EqualValues(t, 15, r1.End.ColumnEnd)
+}
 
-	assert.EqualValuesf(t, 2, result[1].Line, "line of result is : %d", result[1].Line)
-	assert.EqualValuesf(t, 5, result[1].ColumnStart, "start column of result is : %d", result[1].ColumnStart)
-	assert.EqualValuesf(t, 20, result[1].ColumnEnd, "end column of result is : %d", result[1].ColumnEnd)
+func testRangeExpend(t *testing.T) {
+	l1, err := NewLineByYAMLNode(testNode)
+	assert.Nil(t, err)
+	assert.EqualValues(t, 2, l1.Line)
+	assert.EqualValues(t, 3, l1.ColumnStart)
+	assert.EqualValues(t, 14, l1.ColumnEnd)
+
+	l2 := Line{
+		Line:        5,
+		ColumnStart: 10,
+		ColumnEnd:   15,
+	}
+
+	r1 := NewRange(l1, &l2)
+	assert.EqualValues(t, 2, r1.Start.Line)
+	assert.EqualValues(t, 3, r1.Start.ColumnStart)
+	assert.EqualValues(t, 14, r1.Start.ColumnEnd)
+	assert.EqualValues(t, 5, r1.End.Line)
+	assert.EqualValues(t, 10, r1.End.ColumnStart)
+	assert.EqualValues(t, 15, r1.End.ColumnEnd)
+
+	r2 := NewRange(&Line{
+		Line:        1,
+		ColumnStart: 1,
+		ColumnEnd:   10,
+	}, &Line{
+		Line:        10,
+		ColumnStart: 50,
+		ColumnEnd:   100,
+	})
+
+	r3 := r1.expend(&r2)
+	assert.EqualValues(t, 1, r3.Start.Line)
+	assert.EqualValues(t, 1, r3.Start.ColumnStart)
+	assert.EqualValues(t, 10, r3.Start.ColumnEnd)
+	assert.EqualValues(t, 10, r3.End.Line)
+	assert.EqualValues(t, 50, r3.End.ColumnStart)
+	assert.EqualValues(t, 100, r3.End.ColumnEnd)
+
+}
+
+func testRangeCross(t *testing.T) {
+	l1, err := NewLineByYAMLNode(testNode)
+	assert.Nil(t, err)
+	assert.EqualValues(t, 2, l1.Line)
+	assert.EqualValues(t, 3, l1.ColumnStart)
+	assert.EqualValues(t, 14, l1.ColumnEnd)
+
+	l2 := Line{
+		Line:        50,
+		ColumnStart: 100,
+		ColumnEnd:   150,
+	}
+
+	r1 := NewRange(l1, &l2)
+
+	r2 := NewRange(&Line{
+		Line:        5,
+		ColumnStart: 1,
+		ColumnEnd:   100,
+	}, &Line{
+		Line:        100,
+		ColumnStart: 50,
+		ColumnEnd:   100,
+	})
+
+	r3 := r1.expend(&r2)
+	assert.EqualValues(t, 2, r3.Start.Line)
+	assert.EqualValues(t, 3, r3.Start.ColumnStart)
+	assert.EqualValues(t, 14, r3.Start.ColumnEnd)
+	assert.EqualValues(t, 100, r3.End.Line)
+	assert.EqualValues(t, 50, r3.End.ColumnStart)
+	assert.EqualValues(t, 100, r3.End.ColumnEnd)
+}
+
+func testSingleLineRange1(t *testing.T) {
+	l1, err := NewLineByYAMLNode(testNode)
+	assert.Nil(t, err)
+	assert.EqualValues(t, 2, l1.Line)
+	assert.EqualValues(t, 3, l1.ColumnStart)
+	assert.EqualValues(t, 14, l1.ColumnEnd)
+
+	l2 := Line{
+		Line:        2,
+		ColumnStart: 5,
+		ColumnEnd:   150,
+	}
+
+	r1 := NewRange(l1, &l2)
+
+	r2 := NewRange(&Line{
+		Line:        5,
+		ColumnStart: 1,
+		ColumnEnd:   100,
+	}, &Line{
+		Line:        100,
+		ColumnStart: 50,
+		ColumnEnd:   100,
+	})
+
+	r3 := r1.expend(&r2)
+	assert.EqualValues(t, 2, r3.Start.Line)
+	assert.EqualValues(t, 3, r3.Start.ColumnStart)
+	assert.EqualValues(t, 150, r3.Start.ColumnEnd)
+	assert.EqualValues(t, 100, r3.End.Line)
+	assert.EqualValues(t, 50, r3.End.ColumnStart)
+	assert.EqualValues(t, 100, r3.End.ColumnEnd)
+}
+
+func testSingleLineRange2(t *testing.T) {
+	l1, err := NewLineByYAMLNode(testNode)
+	assert.Nil(t, err)
+	assert.EqualValues(t, 2, l1.Line)
+	assert.EqualValues(t, 3, l1.ColumnStart)
+	assert.EqualValues(t, 14, l1.ColumnEnd)
+
+	l2 := Line{
+		Line:        2,
+		ColumnStart: 5,
+		ColumnEnd:   150,
+	}
+
+	r1 := NewRange(l1, &l2)
+
+	r2 := NewRange(&Line{
+		Line:        2,
+		ColumnStart: 1,
+		ColumnEnd:   100,
+	}, &Line{
+		Line:        2,
+		ColumnStart: 50,
+		ColumnEnd:   100,
+	})
+
+	r3 := r1.expend(&r2)
+	assert.EqualValues(t, 2, r3.Start.Line)
+	assert.EqualValues(t, 1, r3.Start.ColumnStart)
+	assert.EqualValues(t, 150, r3.Start.ColumnEnd)
+	assert.EqualValues(t, 2, r3.End.Line)
+	assert.EqualValues(t, 1, r3.End.ColumnStart)
+	assert.EqualValues(t, 150, r3.End.ColumnEnd)
 }
