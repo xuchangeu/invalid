@@ -12,7 +12,7 @@ func TestRule(t *testing.T) {
 }
 
 func testRule1(t *testing.T) {
-	file, err := os.OpenFile(filepath.Join("test", "exam", "simple_exam2.yaml"), os.O_RDONLY, os.ModeSticky)
+	file, err := os.OpenFile(filepath.Join("test", "exam", "simple.yaml"), os.O_RDONLY, os.ModeSticky)
 	assert.Nil(t, err)
 	assert.NotNil(t, file)
 
@@ -69,16 +69,17 @@ func testRule1(t *testing.T) {
 
 	list2X, valid := list2.(*ArrRule)
 	assert.True(t, valid)
-	assert.NotNil(t, list2X.constraintObj)
+	assert.NotNil(t, list2X.constraint)
 
 	//list2.constraint.name
-	list2Name, _ := list2X.constraintObj.Get("name")
+	list2Cx := list2X.constraint.(Ruler)
+	list2Name, _ := list2Cx.Get("name")
 	assert.NotNil(t, list2Name)
 	assert.EqualValues(t, RuleTypeStr, list2Name.RuleType())
 	assert.True(t, list2Name.Required())
 
 	//list2.constraint.description
-	list2Desc, _ := list2X.constraintObj.Get("description")
+	list2Desc, _ := list2Cx.Get("description")
 	assert.NotNil(t, list2Desc)
 	assert.EqualValues(t, RuleTypeStr, list2Desc.RuleType())
 	assert.True(t, list2Desc.Required())

@@ -1,0 +1,42 @@
+---
+map:
+  $type: "$obj"
+  $required: true
+  $key-reg: ".*"
+  map2:
+    $type: $obj
+    strVal:
+      $type: $str
+      $reg: ".*"
+      $length:
+        $max: 20
+        $min: 2
+    boolVal:
+      $type: $bool
+    floatVal:
+      $type: $float
+    nilVal:
+      $type: $null
+  list:
+    $type: $arr
+    $constraint: $str
+  list2:
+    $type : $arr
+    $constraint:
+      foo:
+        $type: $str
+      bar:
+        $type: $str
+        $reg: ".*"
+  map4:
+    $type: $null
+  map5:
+    $type: $obj
+    strVal2:
+      $type: $str
+  map6:
+    $type: $obj
+    405:
+      $type: $obj
+      description:
+        $type: $str

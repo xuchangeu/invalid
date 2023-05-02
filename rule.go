@@ -1,6 +1,7 @@
 package invalid
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
@@ -13,7 +14,7 @@ type RuleType string
 // basic type of schema
 const (
 	//single types
-	RuleTypeNil   RuleType = "$nil"
+	RuleTypeNil   RuleType = "$null"
 	RuleTypeAny   RuleType = "$any"
 	RuleTypeBool  RuleType = "$bool"
 	RuleTypeInt   RuleType = "$int"
@@ -49,7 +50,10 @@ type Ruler interface {
 	restructure() error
 	RuleType() RuleType
 	Get(key string) (Ruler, bool)
+	Key() string
+	GetRules() []Ruler
 	Required() bool
+	Validate(f Field) []*Result
 }
 
 func NewRule(r io.Reader) (Ruler, error) {
@@ -90,6 +94,137 @@ type Rule struct {
 	ruleList  []Ruler
 }
 
+func (rule *Rule) Validate(f Field) []*Result {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	result := doValidate(ctx, cancel, rule, f, nil)
+	if *result == nil {
+		x := make([]*Result, 0)
+		return x
+	}
+	return *result
+
+}
+
+func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Field, result *[]*Result) *[]*Result {
+	if result == nil {
+		result = new([]*Result)
+	}
+
+	if ctx.Err() == context.Canceled {
+		return result
+	}
+
+	for i := 0; i < len(rule.GetRules()); i++ {
+		if ctx.Err() == context.Canceled {
+			return result
+		}
+		r := rule.GetRules()[i]
+		key := r.Key()
+		field, e := f.Get(key)
+		if !e && r.Required() {
+			err := NewResult(LevelError, fmt.Sprintf("Key [%s] is Expected here", key), f.Fields()[i].getValueRange())
+			x := *result
+			v := append(x, &err)
+			cancel()
+			return &v
+		}
+		switch v := r.(type) {
+		case *ObjRule:
+			result = doValidate(ctx, cancel, r, field, result)
+		case *ArrRule:
+			switch v.constraint.(type) {
+			//scalar constraint
+			case string:
+				for i := 0; i < len(field.Fields()); i++ {
+					if string(field.Fields()[i].ValueType()) != v.constraint {
+						err := NewResult(LevelError, fmt.Sprintf("type of value must be : %s", v.constraint), field.getValueRange())
+						x := *result
+						y := append(x, &err)
+						result = &y
+					}
+				}
+			//for ruler object
+			case Ruler:
+				for i := 0; i < len(field.Fields()); i++ {
+					if ctx.Err() == context.Canceled {
+						return result
+					}
+					result = doValidate(ctx, cancel, v.constraint.(Ruler), field.Fields()[i], result)
+				}
+			}
+
+		case *StrRule:
+			if field.Tag() != "!!str" {
+				err := NewResult(LevelError, fmt.Sprintf("type of value must be string : %s", field.Key()), field.getValueRange())
+				x := *result
+				y := append(x, &err)
+				result = &y
+			}
+			//check min or max
+			if v.max != 0 || v.min != 0 {
+				if v.min != 0 && len(field.Value()) < int(v.min) {
+					warn := NewResult(LevelWarning, fmt.Sprintf("length of value in [%s] must > %d", r.Key(), v.min), field.getValueRange())
+					x := *result
+					y := append(x, &warn)
+					result = &y
+				} else if v.max != 0 && len(field.Value()) > int(v.max) {
+					warn := NewResult(LevelWarning, fmt.Sprintf("length of value in [%s] must < %d", r.Key(), v.max), field.getValueRange())
+					x := *result
+					y := append(x, &warn)
+					result = &y
+				}
+			}
+
+			//check regexp
+			if v.regexp != nil {
+				m := v.regexp.Match([]byte(field.Value()))
+				if !m {
+					warn := NewResult(LevelWarning, fmt.Sprintf("value must match regexp : %s", field.Value()), field.getValueRange())
+					x := *result
+					y := append(x, &warn)
+					result = &y
+				}
+			}
+
+		case *IntRule:
+			if field.Tag() != "!!int" {
+				err := NewResult(LevelError, fmt.Sprintf("type of value must be int"), field.getValueRange())
+				x := *result
+				y := append(x, &err)
+				result = &y
+			}
+
+		case *FloatRule:
+			if field.Tag() != "!!float" {
+				err := NewResult(LevelError, fmt.Sprintf("type of value must be float"), field.getValueRange())
+				x := *result
+				y := append(x, &err)
+				result = &y
+			}
+
+		case *BoolRule:
+			if field.Tag() != "!!bool" {
+				err := NewResult(LevelError, fmt.Sprintf("type of value must be bool"), field.getValueRange())
+				x := *result
+				y := append(x, &err)
+				result = &y
+			}
+
+		case *NilFieldRule:
+			if field.Tag() != "!!null" {
+				err := NewResult(LevelError, fmt.Sprintf("type of value must be null"), field.getValueRange())
+				x := *result
+				y := append(x, &err)
+				result = &y
+			}
+
+		}
+	}
+
+	return result
+}
+
 func (rule *Rule) GetRuleMap() map[string]Ruler {
 	return rule.ruleMap
 }
@@ -108,6 +243,13 @@ func (rule *Rule) Get(key string) (Ruler, bool) {
 	}
 	r, e := rule.ruleMap[key]
 	return r, e
+}
+
+func (rule *Rule) Key() string {
+	if rule.keyNode == nil {
+		return ""
+	}
+	return rule.keyNode.Value
 }
 
 func (rule *Rule) getContent() []*yaml.Node {
@@ -134,6 +276,14 @@ func (rule *Rule) addRules(ruleMap map[string]Ruler) {
 	for k, v := range ruleMap {
 		rule.addRule(k, v)
 	}
+}
+
+func (rule *Rule) GetRules() []Ruler {
+	return rule.getRules()
+}
+
+func (rule *Rule) getRules() []Ruler {
+	return rule.ruleList
 }
 
 func (rule *Rule) restructure() error {
@@ -201,21 +351,16 @@ func (rule *ObjRule) restructure() error {
 	return nil
 }
 
-type Constraint Ruler
+type Constraint interface{}
 
 // ArrRule represent a rule of arr
 type ArrRule struct {
 	Rule
-	constraint    string
-	constraintObj Constraint
+	constraint Constraint
 }
 
-func (rule *ArrRule) GetConstraint() string {
+func (rule *ArrRule) GetConstraint() interface{} {
 	return rule.constraint
-}
-
-func (rule *ArrRule) GetConstraintObj() *ObjRule {
-	return rule.GetConstraintObj()
 }
 
 func (rule *ArrRule) restructure() error {
@@ -227,6 +372,7 @@ func (rule *ArrRule) restructure() error {
 	//check constraint
 	k, v, exist := GetKVNodeByKeyName(ConstraintKeyConstraint, rule.getContent())
 	if k != nil && v != nil && exist {
+		//constraint is node
 		if validMapNode(v) {
 			ruleInt, err := newRuler(k, v, true)
 			if err != nil {
@@ -237,7 +383,7 @@ func (rule *ArrRule) restructure() error {
 			if err != nil {
 				return err
 			}
-			rule.constraintObj = ruleInt
+			rule.constraint = ruleInt
 
 		} else if validStrNode(v) {
 			if !contains(scalarTypes, v.Value) {
@@ -245,6 +391,8 @@ func (rule *ArrRule) restructure() error {
 			} else {
 				rule.constraint = v.Value
 			}
+		} else {
+			return errors.New("constraint format should be a string value of scalar type or obj")
 		}
 	}
 	return nil

@@ -1,3 +1,4 @@
+---
 negative: !!int -12
 zero: !!int 0
 positive: !!int 34
@@ -17,3 +18,5 @@ true: y
 false: n
 string: '12345'
 true2: yes
+true3: true
+true4: false

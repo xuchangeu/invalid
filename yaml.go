@@ -41,8 +41,9 @@ type Field interface {
 	Value() string
 	ValueType() ValueType
 	Kind() FieldKind
+	Tag() string
 	Fields() []Field
-	Get(key string) Field
+	Get(key string) (Field, bool)
 	KeyRange() *Range
 	ValueRange() *Range
 	AddField(key string, field Field)
@@ -149,6 +150,7 @@ type YAMLField struct {
 	value       string
 	valueType   ValueType
 	kind        FieldKind
+	tag         string
 	style       yaml.Style
 	children    map[string]Field
 }
@@ -161,6 +163,7 @@ func (f *YAMLField) restructure(sibling *yaml.Node) error {
 	f.setKind()
 	f.setStyle()
 	f.setValueType()
+	f.setTag()
 
 	//
 	err := f.setKeyRange()
@@ -194,12 +197,9 @@ func (f *YAMLField) Fields() []Field {
 	return result
 }
 
-func (f *YAMLField) Get(key string) Field {
+func (f *YAMLField) Get(key string) (Field, bool) {
 	field, exist := f.children[key]
-	if exist {
-		return field
-	}
-	return nil
+	return field, exist
 }
 
 func (f *YAMLField) KeyRange() *Range {
@@ -272,6 +272,20 @@ func (f *YAMLField) setStyle() {
 	if f.valueNode != nil {
 		f.style = f.valueNode.Style
 	}
+}
+
+func (f *YAMLField) setTag() {
+	if f.valueNode != nil {
+		f.tag = f.valueNode.Tag
+	}
+}
+
+func (f *YAMLField) getTag() string {
+	return f.tag
+}
+
+func (f *YAMLField) Tag() string {
+	return f.getTag()
 }
 
 func (f *YAMLField) addField(name string, child Field) {
