@@ -28,12 +28,11 @@
 - `$any`  : represent any valid type 🌶️
 - `$seq`  : sequence block in YAML specification, `$seq` can contain any type as content
 - `$range` : range of number or int
-- `of` : constraint of valid value in enumeration value, valid in type `$str` ,  `$int` ,`$num` or `$any`
-- external constraint reference, feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option for schema.
-- inspire me plz… 💬
+- `of` : constraint of valid value in enumeration value, valid in type `$str` ,`$int` ,`$num` or `$any`
+- external reference, feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option.
+- Implicit variable declaration
 
 ### Implementation Schedule
-
 
 ### Reference
 
@@ -41,12 +40,12 @@
 
 ```yaml
 ---
-data:
-  map:
-    map2: value2
-    bool: true
-    num: 12e3
-    int: 20
+
+map:
+  str1: value2
+  bool: true
+  num: 12e3
+  int: 20
 list:
   - list_value1
   - list_value2
@@ -58,27 +57,29 @@ data2:
 
 ```yaml
 ---
-type: "$obj"
-required: 
-  map: 
-    type: "$obj"	
-    map2: 
-      type: "$str"
-      length: 
-        min: 6
-        max: 12
-      bool:
-        type: "$bool"
-        int:
-          type: "$int"
-  list:
-    type: "$arr"
-    constraint: "$str"
-  data2:
-    type: "$obj"
-    optional: 
-    map3:
-      type: "$obj"
-      map4:
-        type: "$str"
+
+map: 
+  type: $obj
+  str1: 
+    type: $str
+    length: 
+      min: 6
+      max: 12
+  bool:
+    type: $bool
+  num:
+    type: $float
+  int:
+    type: $int
+  
+list:
+  type: $arr
+  constraint: $str
+data2:
+  type: $obj
+  optional: 
+map3:
+    type: $obj
+    map4:
+      type: $str
 ```

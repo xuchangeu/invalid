@@ -1,14 +1,15 @@
+---
 negative: !!int -12
 zero: !!int 0
 positive: !!int 34
 canonical: 12345
 decimal: +12,345
-sexagecimal: 3:25:45
+sexagesimal: 3:25:45
 octal: 014
 hexadecimal: 0xC
 canonical2: 1.23015e+3
-expoential: 12.3015e+02
-sexagecimal2: 20:30.15
+exponential: 12.3015e+02
+sexagesimal2: 20:30.15
 fixed: 1,230.15
 negativeInfinity: -.inf
 not a number: .NaN
@@ -16,3 +17,6 @@ null: ~
 true: y
 false: n
 string: '12345'
+true2: yes
+true3: true
+true4: false

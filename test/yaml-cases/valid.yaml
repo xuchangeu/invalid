@@ -1,0 +1,20 @@
+---
+map:
+  map2:
+    strVal: 53minute
+    boolVal : true
+    floatVal : 1e2
+    nilVal: null
+  list: ["1","2","3"]
+  list2:
+    - foo: a
+      bar: b
+    - foo: c
+      bar: d
+
+  map4:
+  map5:
+    strVal2: "123"
+  map6:
+    "405":
+      description: Invalid Arguments
