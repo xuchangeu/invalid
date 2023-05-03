@@ -132,7 +132,7 @@ func NewYamlField(keyNode, valueNode *yaml.Node) (Field, error) {
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
-	} else if validNilNode(valueNode) {
+	} else if validNullNode(valueNode) {
 		fieldInt = &YAMLNilField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
@@ -270,7 +270,7 @@ func (f *YAMLField) setValueType() {
 		f.valueType = ValueTypeFloat
 	} else if validBoolNode(f.valueNode) {
 		f.valueType = ValueTypeBool
-	} else if validNilNode(f.valueNode) {
+	} else if validNullNode(f.valueNode) {
 		f.valueType = ValueTypeNil
 	}
 }
