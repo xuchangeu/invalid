@@ -1,4 +1,4 @@
-module github.com/xuchengeu/invalid
+module github.com/xuchangeu/invalid
 
 go 1.20
 
