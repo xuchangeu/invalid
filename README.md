@@ -7,6 +7,11 @@
 - [TODO](#todo)
 
 ## Design Goals
+The goal of invalid is to make configuration validation for program more easily.
+Use a simple rule file to define the validation rule
+and checkout the result include `ErrorType`, `ErrorRange` from error.
+The package could be an underlying dependency for various YAML configuration validation,
+eg,: Swagger, K8S...
 
 ## Install
 ```shell
