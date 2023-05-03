@@ -11,7 +11,7 @@ The goal of invalid is to make configuration validation for program more easily.
 Use a simple rule file to define the validation rule
 and checkout the result include `ErrorType`, `ErrorRange` from error.
 The package could be an underlying dependency for various YAML configuration validation,
-eg,: Swagger, K8S...
+eg,. `Swagger`, `K8S`
 
 ## Install
 ```shell
@@ -27,9 +27,9 @@ go get -u github.com/xuchengeu/invalid
 - `$str`  : string
 - `$bool`: boolean
 - `$arr`  : alike type “Array” in Java, contains sub-fields in only one type.
-- `$num`  : floating point
+- `$float`  : floating point
 - `$int`  : integer
-- `$nil`  : NULL value, NULL value’s different from empty string. NULL represent nil in Golang
+- `$null`  : NULL value, NULL value’s different from empty string. NULL represent nil in Golang
 
 ### Constraint
 
@@ -123,9 +123,11 @@ data2:
 
 ## TODO
 
-- `$any`  : represent any valid type
-- `$seq`  : `$seq` can contain any type as content
+- `$any`  : represent any valid scalar type (`$bool`, `$int`, `$float`, `$str`, `$null`, `$float`)
+- `$seq`  : value of type `$seq` is able to contain any value of types inside.
 - `$range` : range of number or int
-- `of` : constraint of valid value in enumeration value, valid under type `$str` ,`$int` ,`$num` or `$any`
+- `$of` : 
+  - constraint of valid value in enumeration value, valid under type `$str` ,`$int` ,`$float` or `$any`
+  - constraint `$of` also could be a key-naming constraint under `$obj` field in association with the scenario like enumeration of `HTTP Code` or `HTTP Method`
 - external reference: feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option.
 - Implicit variable declaration, like declaration for type `$obj`. which makes rules more clear.

@@ -137,6 +137,8 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, fiel
 			v := append(x, &err)
 			cancel()
 			return &v
+		} else if !e && f == nil && !r.Required() {
+			continue
 		}
 		switch v := r.(type) {
 		case *ObjRule:
@@ -404,6 +406,8 @@ func (rule *ArrRule) restructure() error {
 		} else {
 			return errors.New("constraint format should be a string value of scalar type or obj")
 		}
+	} else {
+		return errors.New(fmt.Sprintf("constraint for key [%s] missing", rule.Key()))
 	}
 	return nil
 }

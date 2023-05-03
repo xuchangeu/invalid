@@ -1,0 +1,93 @@
+openapi:
+  $type: $str
+info:
+  $type: $obj
+  description:
+    $type: $str
+  version:
+    $type: $str
+  title:
+    $type: $str
+  termsOfService:
+    $type: $str
+  contact:
+    $type: $obj
+    email:
+      $type: $str
+  license:
+    $type: $obj
+    name:
+      $type: $str
+    url:
+      $type: $str
+
+tags:
+  $type: $arr
+  $constraint:
+    name:
+      $type: $str
+    description:
+      $type: $str
+    externalDocs:
+      $optional: true
+      $type: $obj
+      description:
+        $type: $str
+        $reg: "Description-[.]*"
+      url:
+        $type: $str
+
+paths:
+  $type: $obj
+  /pet:
+    $type: $obj
+    post:
+      $type: $obj
+      tags:
+        $type: $arr
+        $constraint: $str
+      summary:
+        $type: $str
+      description:
+        $type: $str
+      operationId:
+        $type: $str
+      requestBody:
+        $type: $obj
+        $ref:
+          $type: $str
+      responses:
+        $type: $obj
+        "405":
+          $type: $obj
+          description:
+            $type: $str
+    put:
+      $type: $obj
+      tags:
+        $type: $arr
+        $constraint: $str
+      summary:
+        $type: $str
+      description:
+        $type: $str
+      operationId:
+        $type: $str
+      requestBody:
+        $type: $obj
+        $ref:
+          $type: $str
+      responses:
+        $type: $obj
+        "400":
+          $type: $obj
+          description:
+            $type: $str
+        "404":
+          $type: $obj
+          description:
+            $type: $str
+        "405":
+          $type: $obj
+          description:
+            $type: $str

@@ -12,6 +12,27 @@ func TestValid(t *testing.T) {
 	yamlValid(t)
 	yamlKeyMissing(t)
 	yamlTypeMismatch(t)
+	testSwagger(t)
+}
+
+func testSwagger(t *testing.T) {
+	file, err := os.Open(filepath.Join([]string{"test", "yaml-cases", "openapi.yaml"}...))
+	assert.Nil(t, err)
+
+	field, err := NewYAML(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, field)
+
+	file, err = os.OpenFile(filepath.Join("test", "exam", "openapi.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	rule, err := NewRule(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, rule)
+
+	result := rule.Validate(field)
+	assert.EqualValues(t, 2, len(result))
 }
 
 func yamlTypeMismatch(t *testing.T) {

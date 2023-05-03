@@ -390,7 +390,9 @@ func (field *YAMLArrField) restructure(sibling *yaml.Node) error {
 
 		//calc range
 		r := fieldInt.getValueRange()
-		selfRange = selfRange.expend(r)
+		if r != nil && selfRange != nil {
+			selfRange = selfRange.expend(r)
+		}
 
 		//use string format of index as key since node inside list have no key item.
 		key := fmt.Sprintf("%d", i)
@@ -445,9 +447,7 @@ func (field *YAMLMappingField) restructure(sibling *yaml.Node) error {
 
 		//resolve child's value range
 		r := fieldInt.getValueRange()
-		//log.Printf("solving -> %s , range -> strt : %d, %d %d, end : %d, %d, %d . value ==>%s", fieldInt.Key(), r.Start.Line,
-		//	r.Start.ColumnStart, r.Start.ColumnEnd, r.End.Line, r.End.ColumnStart, r.End.ColumnEnd,
-		//	lines[int(r.Start.Line)-1][int(r.Start.ColumnStart)-1:int(r.Start.ColumnEnd)-1])
+
 		selfRange = selfRange.expend(r)
 
 		//add field
