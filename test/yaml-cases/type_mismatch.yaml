@@ -1,0 +1,12 @@
+---
+map:
+  stringVal: 1234
+  intVal: something wrong
+  booVal: yes
+  floatVal: 12345
+  nullVal: some string
+  list: [
+    "aaa",
+    "bbb",
+    "ccc"
+  ]

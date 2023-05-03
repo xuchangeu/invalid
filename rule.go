@@ -25,6 +25,14 @@ const (
 	RuleTypeObj RuleType = "$obj" //an object value contains sub-ruleMap inside, mostly it's a map
 	RuleTypeSeq RuleType = "$seq" //a list with value in any type
 	RuleTypeArr RuleType = "$arr"
+
+	YAMLTypeNull  = "!!null"
+	YAMLTypeBool  = "!!bool"
+	YAMLTypeInt   = "!!int"
+	YAMLTypeFloat = "!!float"
+	YAMLTypeStr   = "!!str"
+	YAMLTypeMap   = "!!map"
+	YAMLTypeSeq   = "!!seq"
 )
 
 // yaml scalar nodes, include bool, integer, float, string and null, but null was not included here.
@@ -40,30 +48,30 @@ const (
 	ConstraintKeyReg        = `$reg`        //regexp pattern written in string, valid in type $str
 	ConstraintKeyMin        = `$min`        //minimum length of string, valid in type $str
 	ConstraintKeyMax        = `$max`        //maximum length of string, valid in type $str
-	ConstraintKeyKReg       = `$key-reg`    //a regexp written in string to perform key validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-regexp exists under type $obj
+	ConstraintKeyKReg       = `$key-reg`    //a regexp written in string to perform key-name validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-regexp exists under type $obj
 	ConstraintKeyConstraint = `$constraint` //a type constraint for type $arr , valid for type $arr
 )
 
 var specKeyInObj = []string{ConstraintKeyType, ConstraintKeyRequired, ConstraintKeyOptional, ConstraintKeyKReg}
 
 type Ruler interface {
-	restructure() error
-	RuleType() RuleType
 	Get(key string) (Ruler, bool)
-	Key() string
 	GetRules() []Ruler
+	RuleType() RuleType
+	Key() string
 	Required() bool
 	Validate(f Field) []*Result
+	restructure() error
 }
 
 func NewRule(r io.Reader) (Ruler, error) {
-	by, err := io.ReadAll(r)
+	byte, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
 	node := &yaml.Node{}
-	err = yaml.Unmarshal(by, node)
+	err = yaml.Unmarshal(byte, node)
 	if err != nil {
 		return nil, err
 	}
@@ -71,18 +79,18 @@ func NewRule(r io.Reader) (Ruler, error) {
 	if len(node.Content) < 1 {
 		return nil, errors.New("document must have at least one field")
 	}
-	docNode := node.Content[0]
+	node = node.Content[0]
 
-	f, e := newRuler(nil, docNode, true)
-	if e != nil {
-		return nil, e
+	ruler, err := newRuler(nil, node, true)
+	if err != nil {
+		return nil, err
 	}
-	e = f.restructure()
-	if e != nil {
-		return nil, e
+	err = ruler.restructure()
+	if err != nil {
+		return nil, err
 	}
 
-	return f, nil
+	return ruler, nil
 }
 
 type Rule struct {
@@ -106,7 +114,7 @@ func (rule *Rule) Validate(f Field) []*Result {
 
 }
 
-func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Field, result *[]*Result) *[]*Result {
+func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, field Field, result *[]*Result) *[]*Result {
 	if result == nil {
 		result = new([]*Result)
 	}
@@ -119,106 +127,110 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 		if ctx.Err() == context.Canceled {
 			return result
 		}
+
 		r := rule.GetRules()[i]
-		key := r.Key()
-		field, e := f.Get(key)
+		f, e := field.Get(r.Key())
+		//check key required missing
 		if !e && r.Required() {
-			err := NewResult(LevelError, fmt.Sprintf("Key [%s] is Expected here", key), f.Fields()[i].getValueRange())
+			err := NewResult(KeyMissing, NewKeyMissingError(r.Key()), field.Fields()[i].getValueRange())
 			x := *result
 			v := append(x, &err)
 			cancel()
 			return &v
+		} else if !e && f == nil && !r.Required() {
+			continue
 		}
 		switch v := r.(type) {
 		case *ObjRule:
-			result = doValidate(ctx, cancel, r, field, result)
+			result = doValidate(ctx, cancel, r, f, result)
 		case *ArrRule:
 			switch v.constraint.(type) {
 			//scalar constraint
 			case string:
-				for i := 0; i < len(field.Fields()); i++ {
-					if string(field.Fields()[i].ValueType()) != v.constraint {
-						err := NewResult(LevelError, fmt.Sprintf("type of value must be : %s", v.constraint), field.getValueRange())
+				for i := 0; i < len(f.Fields()); i++ {
+					if string(f.Fields()[i].ValueType()) != v.constraint {
+						e := NewResult(TypeMismatch, NewTypeMismatchError(fmt.Sprintf("%s.%s", f.Key(),
+							f.Fields()[i].Key()), v.constraint.(string)), f.getValueRange())
 						x := *result
-						y := append(x, &err)
+						y := append(x, &e)
 						result = &y
 					}
 				}
 			//for ruler object
 			case Ruler:
-				for i := 0; i < len(field.Fields()); i++ {
+				for i := 0; i < len(f.Fields()); i++ {
 					if ctx.Err() == context.Canceled {
 						return result
 					}
-					result = doValidate(ctx, cancel, v.constraint.(Ruler), field.Fields()[i], result)
+					result = doValidate(ctx, cancel, v.constraint.(Ruler), f.Fields()[i], result)
 				}
 			}
 
 		case *StrRule:
-			if field.Tag() != "!!str" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be string : %s", field.Key()), field.getValueRange())
+			if f.Tag() != YAMLTypeStr {
+				e := NewResult(TypeMismatch, NewTypeMismatchError(f.Key(), string(RuleTypeStr)), f.getValueRange())
 				x := *result
-				y := append(x, &err)
+				y := append(x, &e)
 				result = &y
 			}
+
 			//check min or max
 			if v.max != 0 || v.min != 0 {
-				if v.min != 0 && len(field.Value()) < int(v.min) {
-					warn := NewResult(LevelWarning, fmt.Sprintf("length of value in [%s] must > %d", r.Key(), v.min), field.getValueRange())
+				if v.min != 0 && len(f.Value()) < int(v.min) {
+					e := NewResult(StrLengthMismatch, NewStrLengthError1(r.Key(), int(v.min)), f.getValueRange())
 					x := *result
-					y := append(x, &warn)
+					y := append(x, &e)
 					result = &y
-				} else if v.max != 0 && len(field.Value()) > int(v.max) {
-					warn := NewResult(LevelWarning, fmt.Sprintf("length of value in [%s] must < %d", r.Key(), v.max), field.getValueRange())
+				} else if v.max != 0 && len(f.Value()) > int(v.max) {
+					e := NewResult(StrLengthMismatch, NewStrLengthError2(r.Key(), int(v.max)), f.getValueRange())
 					x := *result
-					y := append(x, &warn)
+					y := append(x, &e)
 					result = &y
 				}
 			}
 
 			//check regexp
-			if v.regexp != nil {
-				m := v.regexp.Match([]byte(field.Value()))
+			if v.GetReg() != nil {
+				m := v.regexp.Match([]byte(f.Value()))
 				if !m {
-					warn := NewResult(LevelWarning, fmt.Sprintf("value must match regexp : %s", field.Value()), field.getValueRange())
+					e := NewResult(RegxMismatch, NewRegxError(r.Key(), v.GetReg().String()), f.getValueRange())
 					x := *result
-					y := append(x, &warn)
+					y := append(x, &e)
 					result = &y
 				}
 			}
 
 		case *IntRule:
-			if field.Tag() != "!!int" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be int"), field.getValueRange())
+			if f.Tag() != YAMLTypeInt {
+				e := NewResult(TypeMismatch, NewTypeMismatchError(f.Key(), string(RuleTypeInt)), f.getValueRange())
 				x := *result
-				y := append(x, &err)
+				y := append(x, &e)
 				result = &y
 			}
 
 		case *FloatRule:
-			if field.Tag() != "!!float" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be float"), field.getValueRange())
+			if f.Tag() != YAMLTypeFloat {
+				e := NewResult(TypeMismatch, NewTypeMismatchError(f.Key(), string(RuleTypeFloat)), f.getValueRange())
 				x := *result
-				y := append(x, &err)
+				y := append(x, &e)
 				result = &y
 			}
 
 		case *BoolRule:
-			if field.Tag() != "!!bool" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be bool"), field.getValueRange())
+			if f.Tag() != YAMLTypeBool {
+				e := NewResult(TypeMismatch, NewTypeMismatchError(f.Key(), string(RuleTypeBool)), f.getValueRange())
 				x := *result
-				y := append(x, &err)
+				y := append(x, &e)
 				result = &y
 			}
 
-		case *NilFieldRule:
-			if field.Tag() != "!!null" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be null"), field.getValueRange())
+		case *NullFieldRule:
+			if f.Tag() != YAMLTypeNull {
+				e := NewResult(TypeMismatch, NewTypeMismatchError(f.Key(), string(RuleTypeNil)), f.getValueRange())
 				x := *result
-				y := append(x, &err)
+				y := append(x, &e)
 				result = &y
 			}
-
 		}
 	}
 
@@ -289,11 +301,11 @@ func (rule *Rule) getRules() []Ruler {
 func (rule *Rule) restructure() error {
 	//panic("implement me")
 	//handle required
-	k, v, e := GetKVNodeByKeyName(ConstraintKeyOptional, rule.getContent())
-	if k != nil && v != nil && e {
-		if !validBoolNode(v) {
-			return errors.New(fmt.Sprintf("value node must be boolean : [%s]", k.Value))
-		} else if v.Value != "true" {
+	key, value, exist := GetKVNodeByKeyName(ConstraintKeyOptional, rule.getContent())
+	if key != nil && value != nil && exist {
+		if !validBoolNode(value) {
+			return errors.New(fmt.Sprintf("value node must be boolean : [%s]", key.Value))
+		} else if value.Value != "true" {
 			return errors.New(fmt.Sprintf("value for required must be true"))
 		}
 		rule.required = false
@@ -324,13 +336,13 @@ func (rule *ObjRule) restructure() error {
 	for i := 0; i < len(nodes)/2; i++ {
 		k := nodes[i*2]
 		v := nodes[i*2+1]
-		r, err := newRuler(k, v, false)
-		if err != nil {
-			return err
+		r, e := newRuler(k, v, false)
+		if e != nil {
+			return e
 		}
-		err = r.restructure()
-		if err != nil {
-			return err
+		e = r.restructure()
+		if e != nil {
+			return e
 		}
 		rule.addRule(k.Value, r)
 	}
@@ -370,30 +382,32 @@ func (rule *ArrRule) restructure() error {
 	}
 
 	//check constraint
-	k, v, exist := GetKVNodeByKeyName(ConstraintKeyConstraint, rule.getContent())
-	if k != nil && v != nil && exist {
+	key, value, exist := GetKVNodeByKeyName(ConstraintKeyConstraint, rule.getContent())
+	if key != nil && value != nil && exist {
 		//constraint is node
-		if validMapNode(v) {
-			ruleInt, err := newRuler(k, v, true)
+		if validMapNode(value) {
+			ruler, err := newRuler(key, value, true)
 			if err != nil {
 				return err
 			}
 
-			err = ruleInt.restructure()
+			err = ruler.restructure()
 			if err != nil {
 				return err
 			}
-			rule.constraint = ruleInt
+			rule.constraint = ruler
 
-		} else if validStrNode(v) {
-			if !contains(scalarTypes, v.Value) {
-				return errors.New(fmt.Sprintf("constraint should be one of %v", v.Value))
+		} else if validStrNode(value) {
+			if !contains(scalarTypes, value.Value) {
+				return errors.New(fmt.Sprintf("constraint should be one of %v", value.Value))
 			} else {
-				rule.constraint = v.Value
+				rule.constraint = value.Value
 			}
 		} else {
 			return errors.New("constraint format should be a string value of scalar type or obj")
 		}
+	} else {
+		return errors.New(fmt.Sprintf("constraint for key [%s] missing", rule.Key()))
 	}
 	return nil
 }
@@ -425,29 +439,28 @@ func (rule *StrRule) restructure() error {
 	}
 
 	//check min & max
-	k, v, e := GetKVNodeByKeyName(ConstraintKeyLength, rule.getContent())
-	if k != nil && v != nil && e {
-		min, err := GetIntValue(ConstraintKeyMin, v.Content)
+	key, value, exist := GetKVNodeByKeyName(ConstraintKeyLength, rule.getContent())
+	if key != nil && value != nil && exist {
+		min, err := GetIntValue(ConstraintKeyMin, value.Content)
 		if err != nil {
 			return err
 		}
 		rule.min = uint(min)
 
 		//check max
-		max, err := GetIntValue(ConstraintKeyMax, v.Content)
+		max, err := GetIntValue(ConstraintKeyMax, value.Content)
 		if err != nil {
 			return err
 		}
 		rule.max = uint(max)
-
 	}
 
 	//check key regexp
-	k, v, e = GetKVNodeByKeyName(ConstraintKeyReg, rule.getContent())
-	if k != nil && v != nil && e && validStrNode(v) {
-		reg, err := regexp.Compile(v.Value)
+	key, value, exist = GetKVNodeByKeyName(ConstraintKeyReg, rule.getContent())
+	if key != nil && value != nil && exist && validStrNode(value) {
+		reg, err := regexp.Compile(value.Value)
 		if err != nil {
-			return errors.New(fmt.Sprintf("compile regexp error : [%s]", k.Value))
+			return errors.New(fmt.Sprintf("compile regexp error : [%s]", key.Value))
 		}
 		rule.regexp = reg
 	}
@@ -460,12 +473,7 @@ type BoolRule struct {
 }
 
 func (rule *BoolRule) restructure() error {
-	err := rule.Rule.restructure()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return rule.Rule.restructure()
 }
 
 // FloatRule represent a rule a float
@@ -474,12 +482,7 @@ type FloatRule struct {
 }
 
 func (rule *FloatRule) restructure() error {
-	err := rule.Rule.restructure()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return rule.Rule.restructure()
 }
 
 // IntRule represent a rule of int
@@ -488,26 +491,16 @@ type IntRule struct {
 }
 
 func (rule *IntRule) restructure() error {
-	err := rule.Rule.restructure()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return rule.Rule.restructure()
 }
 
-// NilFieldRule represent a rule of nil
-type NilFieldRule struct {
+// NullFieldRule represent a rule of nil
+type NullFieldRule struct {
 	Rule
 }
 
-func (rule *NilFieldRule) restructure() error {
-	err := rule.Rule.restructure()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (rule *NullFieldRule) restructure() error {
+	return rule.Rule.restructure()
 }
 
 func newRuler(keyNode, valueNode *yaml.Node, document bool) (Ruler, error) {
@@ -572,7 +565,7 @@ func newRuler(keyNode, valueNode *yaml.Node, document bool) (Ruler, error) {
 			valueNode: valueNode,
 		}}, nil
 	case RuleTypeNil:
-		return &NilFieldRule{Rule{
+		return &NullFieldRule{Rule{
 			ruleType:  RuleTypeNil,
 			keyNode:   keyNode,
 			valueNode: valueNode,

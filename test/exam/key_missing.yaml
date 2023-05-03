@@ -1,0 +1,12 @@
+---
+map:
+  $type: $obj
+  map2:
+    $type: $obj
+    map3:
+      $type: $obj
+      foo:
+        $type: $str
+      bar1:
+        $type: $null
+

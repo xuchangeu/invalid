@@ -1,10 +1,8 @@
 package invalid
 
 import (
-	"errors"
 	"gopkg.in/yaml.v3"
 	"math"
-	"strings"
 )
 
 type Line struct {
@@ -14,9 +12,10 @@ type Line struct {
 }
 
 func NewLineByYAMLNode(node *yaml.Node) (*Line, error) {
-	if strings.Contains(node.Value, "\n") {
-		return nil, errors.New("string parameter must not contains break line")
-	}
+	//if strings.Contains(node.Value, "\n") {
+	//
+	//	return nil, errors.New("string parameter must not contains break line")
+	//}
 
 	c := uint(len(node.Value))
 	if node.Style == yaml.DoubleQuotedStyle || node.Style == yaml.SingleQuotedStyle {
