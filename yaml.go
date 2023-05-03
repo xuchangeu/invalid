@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
+	"sort"
 )
 
 type FieldKind uint32
@@ -38,6 +39,7 @@ type Field interface {
 	restructure(sibling *yaml.Node) error
 	getValueRange() *Range
 	Key() string
+	setKey(key string)
 	Value() string
 	ValueType() ValueType
 	Kind() FieldKind
@@ -158,7 +160,7 @@ type YAMLField struct {
 func (f *YAMLField) restructure(sibling *yaml.Node) error {
 	//set properties
 	f.siblingNode = sibling
-	f.setKey()
+	f.setKey("")
 	f.setValue()
 	f.setKind()
 	f.setStyle()
@@ -194,6 +196,9 @@ func (f *YAMLField) Fields() []Field {
 	for _, v := range f.children {
 		result = append(result, v)
 	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].Key() < result[j].Key()
+	})
 	return result
 }
 
@@ -214,9 +219,11 @@ func (f *YAMLField) AddField(key string, field Field) {
 	f.addField(key, field)
 }
 
-func (f *YAMLField) setKey() {
+func (f *YAMLField) setKey(key string) {
 	if f.keyNode != nil {
 		f.key = f.keyNode.Value
+	} else {
+		f.key = key
 	}
 }
 
@@ -387,6 +394,7 @@ func (field *YAMLArrField) restructure(sibling *yaml.Node) error {
 
 		//use string format of index as key since node inside list have no key item.
 		key := fmt.Sprintf("%d", i)
+		fieldInt.setKey(key)
 		field.addField(key, fieldInt)
 	}
 	field.setValueRange(selfRange)

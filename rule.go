@@ -40,7 +40,7 @@ const (
 	ConstraintKeyReg        = `$reg`        //regexp pattern written in string, valid in type $str
 	ConstraintKeyMin        = `$min`        //minimum length of string, valid in type $str
 	ConstraintKeyMax        = `$max`        //maximum length of string, valid in type $str
-	ConstraintKeyKReg       = `$key-reg`    //a regexp written in string to perform key validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-regexp exists under type $obj
+	ConstraintKeyKReg       = `$key-reg`    //a regexp written in string to perform key-name validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-regexp exists under type $obj
 	ConstraintKeyConstraint = `$constraint` //a type constraint for type $arr , valid for type $arr
 )
 
@@ -122,8 +122,9 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 		r := rule.GetRules()[i]
 		key := r.Key()
 		field, e := f.Get(key)
+		//check key required missing
 		if !e && r.Required() {
-			err := NewResult(LevelError, fmt.Sprintf("Key [%s] is Expected here", key), f.Fields()[i].getValueRange())
+			err := NewResult(KeyMissing, NewKeyMissingError(key), f.Fields()[i].getValueRange())
 			x := *result
 			v := append(x, &err)
 			cancel()
@@ -138,7 +139,8 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 			case string:
 				for i := 0; i < len(field.Fields()); i++ {
 					if string(field.Fields()[i].ValueType()) != v.constraint {
-						err := NewResult(LevelError, fmt.Sprintf("type of value must be : %s", v.constraint), field.getValueRange())
+						err := NewResult(TypeMismatch, NewTypeMismatchError(fmt.Sprintf("%s.%s", field.Key(),
+							field.Fields()[i].Key()), v.constraint.(string)), field.getValueRange())
 						x := *result
 						y := append(x, &err)
 						result = &y
@@ -156,7 +158,7 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 
 		case *StrRule:
 			if field.Tag() != "!!str" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be string : %s", field.Key()), field.getValueRange())
+				err := NewResult(TypeMismatch, NewTypeMismatchError(field.Key(), string(RuleTypeStr)), field.getValueRange())
 				x := *result
 				y := append(x, &err)
 				result = &y
@@ -164,23 +166,23 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 			//check min or max
 			if v.max != 0 || v.min != 0 {
 				if v.min != 0 && len(field.Value()) < int(v.min) {
-					warn := NewResult(LevelWarning, fmt.Sprintf("length of value in [%s] must > %d", r.Key(), v.min), field.getValueRange())
+					err := NewResult(StrLengthMismatch, NewStrLengthError1(r.Key(), int(v.min)), field.getValueRange())
 					x := *result
-					y := append(x, &warn)
+					y := append(x, &err)
 					result = &y
 				} else if v.max != 0 && len(field.Value()) > int(v.max) {
-					warn := NewResult(LevelWarning, fmt.Sprintf("length of value in [%s] must < %d", r.Key(), v.max), field.getValueRange())
+					err := NewResult(StrLengthMismatch, NewStrLengthError2(r.Key(), int(v.max)), field.getValueRange())
 					x := *result
-					y := append(x, &warn)
+					y := append(x, &err)
 					result = &y
 				}
 			}
 
 			//check regexp
-			if v.regexp != nil {
+			if v.GetReg() != nil {
 				m := v.regexp.Match([]byte(field.Value()))
 				if !m {
-					warn := NewResult(LevelWarning, fmt.Sprintf("value must match regexp : %s", field.Value()), field.getValueRange())
+					warn := NewResult(RegxMismatch, NewRegxError(r.Key(), v.GetReg().String()), field.getValueRange())
 					x := *result
 					y := append(x, &warn)
 					result = &y
@@ -189,7 +191,7 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 
 		case *IntRule:
 			if field.Tag() != "!!int" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be int"), field.getValueRange())
+				err := NewResult(TypeMismatch, NewTypeMismatchError(field.Key(), string(RuleTypeInt)), field.getValueRange())
 				x := *result
 				y := append(x, &err)
 				result = &y
@@ -197,7 +199,7 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 
 		case *FloatRule:
 			if field.Tag() != "!!float" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be float"), field.getValueRange())
+				err := NewResult(TypeMismatch, NewTypeMismatchError(field.Key(), string(RuleTypeFloat)), field.getValueRange())
 				x := *result
 				y := append(x, &err)
 				result = &y
@@ -205,7 +207,7 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 
 		case *BoolRule:
 			if field.Tag() != "!!bool" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be bool"), field.getValueRange())
+				err := NewResult(TypeMismatch, NewTypeMismatchError(field.Key(), string(RuleTypeBool)), field.getValueRange())
 				x := *result
 				y := append(x, &err)
 				result = &y
@@ -213,7 +215,7 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, f Fi
 
 		case *NilFieldRule:
 			if field.Tag() != "!!null" {
-				err := NewResult(LevelError, fmt.Sprintf("type of value must be null"), field.getValueRange())
+				err := NewResult(TypeMismatch, NewTypeMismatchError(field.Key(), string(RuleTypeNil)), field.getValueRange())
 				x := *result
 				y := append(x, &err)
 				result = &y

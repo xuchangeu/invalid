@@ -1,6 +1,20 @@
-# Schema Validation
+- [Design goals](#design-goals)
+- [Install](#install)
+- [Rule](#rule)
+  - [Basic Types](#basic-types)
+  - [Constraint](#constraint)
+- [Example](#example)
+- [TODO](#todo)
 
-## Schema Rule
+## Design Goals
+
+## Install
+```shell
+go get -u github.com/xuchengeu/invalid
+```
+
+
+## Rule
 
 ### Basic Types
 
@@ -14,30 +28,19 @@
 
 ### Constraint
 
-- `required` :  fields must exist,  exists under type `$obj`
-- `optional` :  fields which are optional,  exists under type `$obj` alike `required`
-- `length` : length of character, valid under type `$obj`
-- `reg` : regexp pattern written in string, valid in type `$str`
-- `length.min` : minimum length of string, valid in type `$str`
-- `length.max` : maximum length of string, valid in type `$str`
-- `key-reg` : a regexp written in string to perform key name validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, `key-reg` valid in type `$obj`
-- `constraint` : a type constraint for type $arr , valid for type `$arr`
+- `$required` :  $required means fields must exist, $required could be omitted which means fields is required for default.
+- `$optional` :  $optional means fields could be omitted.
+- `$length` : length of character, valid under type `$str`
+- `$reg` : regexp pattern written in string, valid under type `$str`
+- `$length.$min` : minimum length of string, valid under constraint `$length`
+- `$length.$max` : maximum length of string, valid under constraint `$length`
+- `$key-reg` : a regexp written in string to perform key name validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, `key-reg` valid in type `$obj`
+- `$constraint` : a type constraint for type $arr , valid for type `$arr`. value of constraint could be a valid basic type or map. checkout array example for more reference.
 
-### TODO
 
-- `$any`  : represent any valid type 🌶️
-- `$seq`  : sequence block in YAML specification, `$seq` can contain any type as content
-- `$range` : range of number or int
-- `of` : constraint of valid value in enumeration value, valid in type `$str` ,`$int` ,`$num` or `$any`
-- external reference, feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option.
-- Implicit variable declaration
+## Example
 
-### Implementation Schedule
-
-### Reference
-
-### Example
-
+### YAML source
 ```yaml
 ---
 
@@ -55,31 +58,69 @@ data2:
     map4: value4
 ```
 
+### YAML Rule
 ```yaml
 ---
-
 map: 
-  type: $obj
+  $type: $obj
   str1: 
-    type: $str
-    length: 
-      min: 6
-      max: 12
+    $type: $str
+    $length: 
+      $min: 6
+      $max: 12
   bool:
-    type: $bool
+    $type: $bool
   num:
-    type: $float
+    $type: $float
   int:
-    type: $int
+    $type: $int
   
 list:
   type: $arr
   constraint: $str
 data2:
-  type: $obj
-  optional: 
-map3:
-    type: $obj
+  $type: $obj 
+  map3:
+    $type: $obj
     map4:
-      type: $str
+      $type: $str
 ```
+
+### Code
+```gotemplate
+    file, err := os.Open(filepath.Join([]string{"your","path","here"}...))
+    if err != nil{
+	    log.Println(err)
+        return
+    }
+    field, err := NewYAML(file)
+    if err != nil{
+        log.Println(err)
+        return
+    }
+	
+    file, err = os.OpenFile(filepath.Join([]string{"your","path","here"}...), 
+            os.O_RDONLY, os.ModeSticky)
+    if err != nil{
+        log.Println(err)
+        return
+    }
+    rule, err := NewRule(file)
+    if err != nil{
+        log.Println(err)
+        return
+    }
+
+    errs := rule.Validate(field)
+    log.Println(errs)
+```
+
+
+## TODO
+
+- `$any`  : represent any valid type
+- `$seq`  : `$seq` can contain any type as content
+- `$range` : range of number or int
+- `of` : constraint of valid value in enumeration value, valid under type `$str` ,`$int` ,`$num` or `$any`
+- external reference: feature like  "Anchor" & "Extend/Inherit" in YAML Spec 1.2 is an available option.
+- Implicit variable declaration, like declaration for type `$obj`. which makes rules more clear.
