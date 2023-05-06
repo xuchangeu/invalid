@@ -1,3 +1,6 @@
+[![Build Status](https://app.travis-ci.com/xuchangeu/invalid.svg?branch=main)](https://app.travis-ci.com/xuchangeu/invalid)
+
+
 - [Design goals](#design-goals)
 - [Install](#install)
 - [Rule](#rule)
