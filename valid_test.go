@@ -90,36 +90,6 @@ func yamlKeyMissing(t *testing.T) {
 	assert.EqualValues(t, NewKeyMissingError("bar1"), errs[0].Error)
 }
 
-func BenchmarkValid(b *testing.B) {
-	file, err := os.Open(filepath.Join([]string{"test", "yaml-cases", "valid.yaml"}...))
-	if err != nil {
-		log.Printf(err.Error())
-		return
-	}
-	field, err := NewYAML(file)
-	if err != nil {
-		log.Printf(err.Error())
-		return
-	}
-
-	file, err = os.OpenFile(filepath.Join("test", "exam", "valid.yaml"), os.O_RDONLY, os.ModeSticky)
-	if err != nil {
-		log.Printf(err.Error())
-		return
-	}
-
-	rule, err := NewRule(file)
-	if err != nil {
-		log.Printf(err.Error())
-		return
-	}
-
-	for i := 0; i < b.N; i++ {
-		rule.Validate(field)
-		//log.Printf("%v", result)
-	}
-}
-
 func yamlValid(t *testing.T) {
 	file, err := os.Open(filepath.Join([]string{"test", "yaml-cases", "valid.yaml"}...))
 	assert.Nil(t, err)
@@ -139,4 +109,40 @@ func yamlValid(t *testing.T) {
 	result := rule.Validate(field)
 	assert.NotNil(t, result)
 	assert.EqualValues(t, 0, len(result))
+}
+
+func BenchmarkValid(b *testing.B) {
+	b.StopTimer()
+	file, err := os.Open(filepath.Join([]string{"test", "yaml-cases", "valid.yaml"}...))
+
+	if err != nil {
+		log.Printf(err.Error())
+		return
+	}
+	b.StartTimer()
+
+	field, err := NewYAML(file)
+	if err != nil {
+		log.Printf(err.Error())
+		return
+	}
+
+	b.StopTimer()
+	file, err = os.OpenFile(filepath.Join("test", "exam", "valid.yaml"), os.O_RDONLY, os.ModeSticky)
+	if err != nil {
+		log.Printf(err.Error())
+		return
+	}
+
+	b.StartTimer()
+	rule, err := NewRule(file)
+	if err != nil {
+		log.Printf(err.Error())
+		return
+	}
+
+	for i := 0; i < b.N; i++ {
+		rule.Validate(field)
+		//log.Printf("%v", result)
+	}
 }

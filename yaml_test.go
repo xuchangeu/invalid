@@ -17,6 +17,7 @@ func TestYAML(t *testing.T) {
 
 func BenchmarkYAML(b *testing.B) {
 	file, _ := os.Open(filepath.Join([]string{"test", "yaml-cases", "various_value.yaml"}...))
+	b.ResetTimer() //reset benchmark timer
 	for i := 0; i < b.N; i++ {
 		NewYAML(file)
 	}

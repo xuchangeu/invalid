@@ -1,0 +1,9 @@
+language: go
+go:
+  - 1.10.x
+  - 1.13.x
+
+before_install:
+  - gofmt -l ./
+  - go vet ./*.go
+  - go test -v  ./
