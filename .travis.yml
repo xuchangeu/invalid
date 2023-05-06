@@ -2,6 +2,7 @@ language: go
 go:
   - 1.10.x
   - 1.13.x
+  - 1.15.x
 
 before_install:
   - gofmt -l ./
