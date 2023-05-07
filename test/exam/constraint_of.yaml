@@ -1,0 +1,9 @@
+---
+map:
+  map2:
+    strVal: abcd
+    intVal: 1234
+    floatVal: 1.23
+    boolVal: true
+    nullVal: null
+

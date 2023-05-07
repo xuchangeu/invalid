@@ -10,6 +10,7 @@ const (
 	TypeMismatch                 = "typeMismatch"
 	StrLengthMismatch            = "strLengthMismatch"
 	RegxMismatch                 = "regxMismatch"
+	OfMismatch                   = "ofMismatch"
 )
 
 type ResultType string

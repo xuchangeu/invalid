@@ -101,37 +101,37 @@ func GetKVNodeByKeyName(key string, nodes []*yaml.Node) (*yaml.Node, *yaml.Node,
 
 // weather tag of node is !!str
 func validStrNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeStr
+	return node.Tag == yamlNodeTypeStr
 }
 
 // weather tag of node is !!bool
 func validBoolNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeBool
+	return node.Tag == yamlNodeTypeBool
 }
 
 // weather tag of node is !!float
 func validFloatNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeFloat
+	return node.Tag == yamlNodeTypeFloat
 }
 
 // weather tag of node is !!arr
 func validArrNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeSeq
+	return node.Tag == yamlNodeTypeSeq
 }
 
 // weather tag of node is !!int
 func validIntNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeInt
+	return node.Tag == yamlNodeTypeInt
 }
 
 // weather tag of node is !!null
 func validNullNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeNull
+	return node.Tag == yamlNodeTypeNull
 }
 
 // weather tag of node is !!map
 func validMapNode(node *yaml.Node) bool {
-	return node.Tag == YAMLTypeMap
+	return node.Tag == yamlNodeTypeMap
 }
 
 func contains(s []string, e string) bool {

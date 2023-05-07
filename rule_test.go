@@ -9,6 +9,44 @@ import (
 
 func TestRule(t *testing.T) {
 	testRule1(t)
+	testConstraintOfInvalid(t)
+	testConstraintOfInvalid2(t)
+	testConstraintOfValid(t)
+}
+
+func testConstraintOfInvalid(t *testing.T) {
+	file, err := os.OpenFile(filepath.Join("test", "yaml-cases", "constraint_of_invalid.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	ruler, err := NewRule(file)
+	assert.NotNil(t, err)
+	assert.Nil(t, ruler)
+	assert.Equal(t, err, OfTypeError("strVal.2", string(RuleTypeStr)))
+
+}
+
+func testConstraintOfInvalid2(t *testing.T) {
+	file, err := os.OpenFile(filepath.Join("test", "yaml-cases", "constraint_of_invalid2.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	ruler, err := NewRule(file)
+	assert.NotNil(t, err)
+	assert.Nil(t, ruler)
+	assert.Equal(t, ConstraintTypeError("strVal", yamlNodeTypeSeq), err)
+
+}
+
+func testConstraintOfValid(t *testing.T) {
+	file, err := os.OpenFile(filepath.Join("test", "yaml-cases", "constraint_of_valid.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	ruler, err := NewRule(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, ruler)
+
 }
 
 func testRule1(t *testing.T) {
