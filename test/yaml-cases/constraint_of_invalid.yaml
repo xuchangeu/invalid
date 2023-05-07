@@ -1,0 +1,11 @@
+---
+map:
+  $type: $obj
+  map2:
+    $type: $obj
+    strVal:
+      $type: $str
+      $of:
+        - some_string
+        - some_string
+        - 1.5e2

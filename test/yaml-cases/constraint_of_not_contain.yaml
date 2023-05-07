@@ -1,0 +1,26 @@
+---
+map:
+  $type: $obj
+  map2:
+    $type: $obj
+    strVal:
+      $type: $str
+      $of:
+        - abc
+        - efgh
+    intVal:
+      $type: $int
+      $of:
+        - 123
+        - 5678
+    floatVal:
+      $type: $float
+      $of:
+        - 1.2
+        - 2.23
+    boolVal:
+      $type: $bool
+      $of:
+        - false
+    nullVal:
+      $type: $null

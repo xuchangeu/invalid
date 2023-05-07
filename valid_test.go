@@ -10,6 +10,50 @@ import (
 
 func TestValid(t *testing.T) {
 	yamlValid(t)
+	constraintOfValid(t)
+	constraintOfInValid(t)
+}
+
+func constraintOfInValid(t *testing.T) {
+	file, err := os.OpenFile(filepath.Join("test", "exam", "constraint_of.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	yaml, err := NewYAML(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, yaml)
+
+	file, err = os.OpenFile(filepath.Join("test", "yaml-cases", "constraint_of_not_contain.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	ruler, err := NewRule(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, ruler)
+
+	result := ruler.Validate(yaml)
+	assert.EqualValues(t, 4, len(result))
+}
+
+func constraintOfValid(t *testing.T) {
+	file, err := os.OpenFile(filepath.Join("test", "exam", "constraint_of.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	yaml, err := NewYAML(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, yaml)
+
+	file, err = os.OpenFile(filepath.Join("test", "yaml-cases", "constraint_of_contain.yaml"), os.O_RDONLY, os.ModeSticky)
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+
+	ruler, err := NewRule(file)
+	assert.Nil(t, err)
+	assert.NotNil(t, ruler)
+
+	result := ruler.Validate(yaml)
+	assert.EqualValues(t, 0, len(result))
 }
 
 func BenchmarkValid(b *testing.B) {
