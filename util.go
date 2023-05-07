@@ -5,42 +5,41 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"strconv"
-	"strings"
 )
 
-func deepFieldWithDot(keys []string) string {
-	if len(keys) == 0 {
-		return ""
-	}
-	return strings.Join(keys, ConstraintKeyDepthIndicator)
-}
+//func deepFieldWithDot(keys []string) string {
+//	if len(keys) == 0 {
+//		return ""
+//	}
+//	return strings.Join(keys, ConstraintKeyDepthIndicator)
+//}
 
 // get the content under the specific *yaml.Node by key only if it's Tag's !!map
 // function return en empty slice if the tag is scalar node
 // the value node should be a map
-func getChildValueNodes(key string, valueNode *yaml.Node) []*yaml.Node {
-	if valueNode.Tag != "!!map" || len(valueNode.Content) == 0 {
-		return []*yaml.Node{}
-	}
-	//find target
-	var targetNode *yaml.Node
-	content := valueNode.Content
-	for i := 0; i < len(content)/2; i++ {
-		k := content[i*2]
-		v := content[i*2+1]
-		if k.Value == key {
-			targetNode = v
-			break
-		}
-	}
-
-	//target exist
-	if targetNode != nil && targetNode.Tag == "!!map" && len(targetNode.Content) > 0 {
-		return targetNode.Content
-	}
-
-	return []*yaml.Node{}
-}
+//func getChildValueNodes(key string, valueNode *yaml.Node) []*yaml.Node {
+//	if valueNode.Tag != "!!map" || len(valueNode.Content) == 0 {
+//		return []*yaml.Node{}
+//	}
+//	//find target
+//	var targetNode *yaml.Node
+//	content := valueNode.Content
+//	for i := 0; i < len(content)/2; i++ {
+//		k := content[i*2]
+//		v := content[i*2+1]
+//		if k.Value == key {
+//			targetNode = v
+//			break
+//		}
+//	}
+//
+//	//target exist
+//	if targetNode != nil && targetNode.Tag == "!!map" && len(targetNode.Content) > 0 {
+//		return targetNode.Content
+//	}
+//
+//	return []*yaml.Node{}
+//}
 
 // getNodesExcept return yaml node's content except the key mentioned, also the value match to key
 func getContentExcept(node *yaml.Node, keys ...string) []*yaml.Node {
@@ -79,16 +78,16 @@ func GetIntValue(key string, nodes []*yaml.Node) (int, error) {
 
 // GetStringValue get string value of content by key name
 // return error when tag mismatch
-func GetStringValue(key string, nodes []*yaml.Node) (string, error) {
-	k, v, exist := GetKVNodeByKeyName(key, nodes)
-	if k != nil && v != nil && exist {
-		if !validStrNode(v) {
-			return "", errors.New(fmt.Sprintf("node tag is not int for key : [%s]", key))
-		}
-		return v.Value, nil
-	}
-	return "", errors.New(fmt.Sprintf("value not found for key : [%s]", key))
-}
+//func GetStringValue(key string, nodes []*yaml.Node) (string, error) {
+//	k, v, exist := GetKVNodeByKeyName(key, nodes)
+//	if k != nil && v != nil && exist {
+//		if !validStrNode(v) {
+//			return "", errors.New(fmt.Sprintf("node tag is not int for key : [%s]", key))
+//		}
+//		return v.Value, nil
+//	}
+//	return "", errors.New(fmt.Sprintf("value not found for key : [%s]", key))
+//}
 
 // GetKVNodeByKeyName function return keyNode,valueNode,exist by key name
 func GetKVNodeByKeyName(key string, nodes []*yaml.Node) (*yaml.Node, *yaml.Node, bool) {
@@ -98,17 +97,6 @@ func GetKVNodeByKeyName(key string, nodes []*yaml.Node) (*yaml.Node, *yaml.Node,
 		}
 	}
 	return nil, nil, false
-}
-
-func mergeNodes(nodes ...[]*yaml.Node) []*yaml.Node {
-	r := make([]*yaml.Node, 0)
-	for i := 0; i < len(nodes); i++ {
-		for j := 0; j < len(nodes[i]); j++ {
-			r = append(r, nodes[i][j])
-		}
-	}
-
-	return r
 }
 
 // weather tag of node is !!str
@@ -137,7 +125,7 @@ func validIntNode(node *yaml.Node) bool {
 }
 
 // weather tag of node is !!null
-func validNilNode(node *yaml.Node) bool {
+func validNullNode(node *yaml.Node) bool {
 	return node.Tag == yamlNodeTypeNull
 }
 
@@ -155,6 +143,6 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-const (
-	ConstraintKeyDepthIndicator = "."
-)
+//const (
+//	ConstraintKeyDepthIndicator = "."
+//)

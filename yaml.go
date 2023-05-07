@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
+	"sort"
 )
 
 type FieldKind uint32
@@ -38,6 +39,7 @@ type Field interface {
 	restructure(sibling *yaml.Node) error
 	getValueRange() *Range
 	Key() string
+	setKey(key string)
 	Value() string
 	ValueType() ValueType
 	Kind() FieldKind
@@ -130,7 +132,7 @@ func NewYamlField(keyNode, valueNode *yaml.Node) (Field, error) {
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
-	} else if validNilNode(valueNode) {
+	} else if validNullNode(valueNode) {
 		fieldInt = &YAMLNilField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
@@ -158,7 +160,7 @@ type YAMLField struct {
 func (f *YAMLField) restructure(sibling *yaml.Node) error {
 	//set properties
 	f.siblingNode = sibling
-	f.setKey()
+	f.setKey("")
 	f.setValue()
 	f.setKind()
 	f.setStyle()
@@ -194,6 +196,9 @@ func (f *YAMLField) Fields() []Field {
 	for _, v := range f.children {
 		result = append(result, v)
 	}
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].Key() < result[j].Key()
+	})
 	return result
 }
 
@@ -214,9 +219,11 @@ func (f *YAMLField) AddField(key string, field Field) {
 	f.addField(key, field)
 }
 
-func (f *YAMLField) setKey() {
+func (f *YAMLField) setKey(key string) {
 	if f.keyNode != nil {
 		f.key = f.keyNode.Value
+	} else {
+		f.key = key
 	}
 }
 
@@ -263,7 +270,7 @@ func (f *YAMLField) setValueType() {
 		f.valueType = ValueTypeFloat
 	} else if validBoolNode(f.valueNode) {
 		f.valueType = ValueTypeBool
-	} else if validNilNode(f.valueNode) {
+	} else if validNullNode(f.valueNode) {
 		f.valueType = ValueTypeNil
 	}
 }
@@ -383,10 +390,13 @@ func (field *YAMLArrField) restructure(sibling *yaml.Node) error {
 
 		//calc range
 		r := fieldInt.getValueRange()
-		selfRange = selfRange.expend(r)
+		if r != nil && selfRange != nil {
+			selfRange = selfRange.expend(r)
+		}
 
 		//use string format of index as key since node inside list have no key item.
 		key := fmt.Sprintf("%d", i)
+		fieldInt.setKey(key)
 		field.addField(key, fieldInt)
 	}
 	field.setValueRange(selfRange)
@@ -437,9 +447,7 @@ func (field *YAMLMappingField) restructure(sibling *yaml.Node) error {
 
 		//resolve child's value range
 		r := fieldInt.getValueRange()
-		//log.Printf("solving -> %s , range -> strt : %d, %d %d, end : %d, %d, %d . value ==>%s", fieldInt.Key(), r.Start.Line,
-		//	r.Start.ColumnStart, r.Start.ColumnEnd, r.End.Line, r.End.ColumnStart, r.End.ColumnEnd,
-		//	lines[int(r.Start.Line)-1][int(r.Start.ColumnStart)-1:int(r.Start.ColumnEnd)-1])
+
 		selfRange = selfRange.expend(r)
 
 		//add field

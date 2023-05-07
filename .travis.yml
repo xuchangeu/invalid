@@ -1,0 +1,11 @@
+language: go
+go:
+  - master
+
+env:
+  - GO111MODULE=on
+
+before_install:
+  - gofmt -l ./
+  - go vet ./*.go
+  - go test -v  ./

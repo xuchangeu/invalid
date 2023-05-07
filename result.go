@@ -6,26 +6,49 @@ import (
 )
 
 const (
-	LevelWarning = "warning"
-	LevelError   = "error"
+	KeyMissing        ResultType = "keyMissing"
+	TypeMismatch                 = "typeMismatch"
+	StrLengthMismatch            = "strLengthMismatch"
+	RegxMismatch                 = "regxMismatch"
+	OfMismatch                   = "ofMismatch"
 )
 
-type Level string
+type ResultType string
 
 type Result struct {
-	Level   Level
-	Message string
-	Range   *Range
+	Type  ResultType
+	Error error
+	Range *Range
 }
 
-func NewFieldMissingError(key string) error {
-	return errors.New(fmt.Sprintf("Key [%s] is Expected here", key))
+func NewKeyMissingError(key string) error {
+	return errors.New(fmt.Sprintf("key [%s] is expected here", key))
 }
 
-func NewResult(level Level, msg string, r *Range) Result {
+func NewTypeMismatchError(key, ty string) error {
+	return errors.New(fmt.Sprintf("type for [%s] must be [%s]", key, ty))
+}
+
+func NewStrLengthError1(key string, len int) error {
+	return errors.New(fmt.Sprintf("length of value in [%s] must < %d", key, len))
+}
+
+func NewStrLengthError2(key string, len int) error {
+	return errors.New(fmt.Sprintf("length of value in [%s] must > %d", key, len))
+}
+
+func NewRegxError(key, regx string) error {
+	return errors.New(fmt.Sprintf("value for [%s] must match regexp : %s", key, regx))
+}
+
+func NewKeyNameError(key, regx string) error {
+	return errors.New(fmt.Sprintf("key name for [%s] must match regexp ： %s", key, regx))
+}
+
+func NewResult(t ResultType, err error, r *Range) Result {
 	return Result{
-		Level:   level,
-		Message: msg,
-		Range:   r,
+		Type:  t,
+		Error: err,
+		Range: r,
 	}
 }

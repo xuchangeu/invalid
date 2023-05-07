@@ -1,0 +1,16 @@
+---
+map:
+  $type: $obj
+  stringVal:
+    $type: $str
+  intVal:
+    $type: $int
+  booVal:
+    $type: $bool
+  floatVal:
+    $type: $float
+  nullVal:
+    $type: $null
+  list:
+    $type: $arr
+    $constraint: $int
