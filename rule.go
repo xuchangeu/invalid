@@ -53,7 +53,8 @@ const (
 	ConstraintKeyMax        = `$max`        //maximum length of string, valid in type $str
 	ConstraintKeyKReg       = `$key-reg`    //a regexp written in string to perform key validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, key-regexp exists under type $obj
 	ConstraintKeyConstraint = `$constraint` //a type constraint for type $arr , valid for type $arr
-	ConstraintKeyOf         = "$of"         //constraint `of` is a approach to define enumeration value of a scalar field.it's valid under any scalar field.
+	ConstraintKeyOf         = "$of"         //constraint `of` is an approach to define enumeration value of a scalar field.it's valid under any scalar field.
+	ConstraintKeyRange      = "$range"      //range of a numeric value
 )
 
 var specKeyInObj = []string{ConstraintKeyType, ConstraintKeyRequired, ConstraintKeyOptional, ConstraintKeyKReg}
@@ -201,17 +202,24 @@ func doValidate(ctx context.Context, cancel context.CancelFunc, rule Ruler, fiel
 			}
 
 			//check min or max
-			if v.max != 0 || v.min != 0 {
-				if v.min != 0 && len(f.Value()) < int(v.min) {
-					e := NewResult(StrLengthMismatch, NewStrLengthError1(r.Key(), int(v.min)), f.getValueRange())
-					x := *result
-					y := append(x, &e)
-					result = &y
-				} else if v.max != 0 && len(f.Value()) > int(v.max) {
-					e := NewResult(StrLengthMismatch, NewStrLengthError2(r.Key(), int(v.max)), f.getValueRange())
-					x := *result
-					y := append(x, &e)
-					result = &y
+			if v.GetMin() != nil || v.GetMax() != nil {
+				if v.GetMin() != nil {
+					m := int(*v.GetMin())
+					if len(f.Value()) < m {
+						e := NewResult(StrLengthMismatch, NewStrLengthError1(r.Key(), m), f.getValueRange())
+						x := *result
+						y := append(x, &e)
+						result = &y
+					}
+
+				} else if v.GetMax() != nil {
+					m := int(*v.GetMax())
+					if len(f.Value()) > m {
+						e := NewResult(StrLengthMismatch, NewStrLengthError2(r.Key(), m), f.getValueRange())
+						x := *result
+						y := append(x, &e)
+						result = &y
+					}
 				}
 			}
 
@@ -543,16 +551,16 @@ func (rule *ScalarRule) restructure() error {
 // StrRule represent a rule field of string
 type StrRule struct {
 	ScalarRule
-	max    uint           //max length of field
-	min    uint           //min length of field
+	max    *uint          //max length of field
+	min    *uint          //min length of field
 	regexp *regexp.Regexp //regexp of field
 }
 
-func (rule *StrRule) GetMax() uint {
-	return rule.min
+func (rule *StrRule) GetMax() *uint {
+	return rule.max
 }
 
-func (rule *StrRule) GetMin() uint {
+func (rule *StrRule) GetMin() *uint {
 	return rule.min
 }
 
@@ -573,14 +581,16 @@ func (rule *StrRule) restructure() error {
 		if err != nil {
 			return err
 		}
-		rule.min = uint(min)
+		m := uint(min)
+		rule.min = &m
 
 		//check max
 		max, err := GetIntValue(ConstraintKeyMax, value.Content)
 		if err != nil {
 			return err
 		}
-		rule.max = uint(max)
+		n := uint(max)
+		rule.max = &n
 	}
 
 	//check key regexp
@@ -608,18 +618,71 @@ func (rule *BoolRule) restructure() error {
 // FloatRule represent a rule a float
 type FloatRule struct {
 	ScalarRule
+	min *float64
+	max *float64
+}
+
+func (rule *FloatRule) GetMin() *float64 {
+	return rule.min
+}
+
+func (rule *FloatRule) GetMax() *float64 {
+	return rule.max
 }
 
 func (rule *FloatRule) restructure() error {
+	//check constraint range
+	key, value, exist := GetKVNodeByKeyName(ConstraintKeyRange, rule.getContent())
+	if key != nil && value != nil && exist {
+		min, err := GetFloatValue(ConstraintKeyMin, value.Content)
+		if err != nil {
+			return err
+		}
+		rule.min = &min
+
+		max, err := GetFloatValue(ConstraintKeyMax, value.Content)
+		if err != nil {
+			return err
+		}
+		rule.max = &max
+
+	}
 	return rule.ScalarRule.restructure()
 }
 
 // IntRule represent a rule of int
 type IntRule struct {
 	ScalarRule
+	min *int
+	max *int
+}
+
+func (rule *IntRule) GetMin() *int {
+	return rule.min
+}
+
+func (rule *IntRule) GetMax() *int {
+	return rule.max
 }
 
 func (rule *IntRule) restructure() error {
+
+	//check constraint range
+	key, value, exist := GetKVNodeByKeyName(ConstraintKeyRange, rule.getContent())
+	if key != nil && value != nil && exist {
+		min, err := GetIntValue(ConstraintKeyMin, value.Content)
+		if err != nil {
+			return err
+		}
+		rule.min = &min
+
+		max, err := GetIntValue(ConstraintKeyMax, value.Content)
+		if err != nil {
+			return err
+		}
+		rule.max = &max
+
+	}
 	return rule.ScalarRule.restructure()
 }
 
@@ -670,7 +733,7 @@ func newRuler(keyNode, valueNode *yaml.Node, document bool) (Ruler, error) {
 			}}, nil
 	case RuleTypeInt:
 		return &IntRule{
-			ScalarRule{
+			ScalarRule: ScalarRule{
 				Rule: Rule{
 					ruleType:  RuleTypeInt,
 					keyNode:   keyNode,
@@ -697,7 +760,7 @@ func newRuler(keyNode, valueNode *yaml.Node, document bool) (Ruler, error) {
 			}}, nil
 	case RuleTypeFloat:
 		return &FloatRule{
-			ScalarRule{
+			ScalarRule: ScalarRule{
 				Rule: Rule{
 					ruleType:  RuleTypeFloat,
 					keyNode:   keyNode,

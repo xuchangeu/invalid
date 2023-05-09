@@ -86,8 +86,8 @@ func testRule1(t *testing.T) {
 	strValX, valid := strVal.(*StrRule)
 	assert.EqualValues(t, true, valid)
 	assert.EqualValues(t, ".*", strValX.regexp.String())
-	assert.EqualValues(t, 20, strValX.max)
-	assert.EqualValues(t, 10, strValX.min)
+	assert.EqualValues(t, 20, *strValX.GetMax())
+	assert.EqualValues(t, 10, *strValX.GetMin())
 
 	//list
 	list, _ := m2.Get("list")
@@ -136,4 +136,23 @@ func testRule1(t *testing.T) {
 	strVal2, _ := m5.Get("strVal2")
 	assert.EqualValues(t, RuleTypeStr, strVal2.RuleType())
 	assert.True(t, strVal2.Required())
+
+	//floatVal
+	floatVal := m2.MustGet("floatVal")
+	assert.EqualValues(t, RuleTypeFloat, floatVal.RuleType())
+	assert.True(t, floatVal.Required())
+	floatValX, valid := floatVal.(*FloatRule)
+	assert.True(t, valid)
+	assert.EqualValues(t, -5.2, *floatValX.min)
+	assert.EqualValues(t, 20.0, *floatValX.max)
+
+	//m4.intVal
+	intVal := m4.MustGet("intVal")
+	assert.EqualValues(t, RuleTypeInt, intVal.RuleType())
+	assert.True(t, intVal.Required())
+	intValX, valid := intVal.(*IntRule)
+	assert.True(t, valid)
+	assert.EqualValues(t, -2, *intValX.min)
+	assert.EqualValues(t, 100, *intValX.max)
+
 }

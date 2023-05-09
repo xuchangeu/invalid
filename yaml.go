@@ -101,45 +101,45 @@ func NewYAML(r io.Reader) (Field, error) {
 }
 
 func NewYamlField(keyNode, valueNode *yaml.Node) (Field, error) {
-	var fieldInt Field
+	var field Field
 	if validMapNode(valueNode) {
-		fieldInt = &YAMLMappingField{YAMLField{
+		field = &YAMLMappingField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	} else if validArrNode(valueNode) {
-		fieldInt = &YAMLArrField{YAMLField{
+		field = &YAMLArrField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	} else if validStrNode(valueNode) {
-		fieldInt = &YAMLStrField{YAMLField{
+		field = &YAMLStrField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	} else if validBoolNode(valueNode) {
-		fieldInt = &YAMLBoolField{YAMLField{
+		field = &YAMLBoolField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	} else if validIntNode(valueNode) {
-		fieldInt = &YAMLIntField{YAMLField{
+		field = &YAMLIntField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	} else if validFloatNode(valueNode) {
-		fieldInt = &YAMLFloatField{YAMLField{
+		field = &YAMLFloatField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	} else if validNullNode(valueNode) {
-		fieldInt = &YAMLNilField{YAMLField{
+		field = &YAMLNilField{YAMLField{
 			keyNode:   keyNode,
 			valueNode: valueNode,
 		}}
 	}
 
-	return fieldInt, nil
+	return field, nil
 }
 
 type YAMLField struct {

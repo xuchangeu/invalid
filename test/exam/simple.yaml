@@ -22,9 +22,18 @@ map:
         description:
           $type: "$str"
           $reg: ".*"
-          
+    floatVal:
+      $type: $float
+      $range:
+        $min: -5.2
+        $max: 20.0
     map4:
       $type: "$obj"
+      intVal:
+        $type: $int
+        $range:
+          $min: -2
+          $max: 100
   map5:
     $optional: true
     $type: "$obj"

@@ -59,6 +59,27 @@ func getContentExcept(node *yaml.Node, keys ...string) []*yaml.Node {
 	return result
 }
 
+// GetFloatValue get float value of content by key name
+// return error when tag mismatch
+func GetFloatValue(key string, nodes []*yaml.Node) (float64, error) {
+	k, v, exist := GetKVNodeByKeyName(key, nodes)
+	if k != nil && v != nil && exist {
+		if !validFloatNode(v) {
+			return 0, errors.New(fmt.Sprintf("node tag is not float for key : [%s]", key))
+		}
+
+		val, err := strconv.ParseFloat(v.Value, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return val, nil
+	}
+
+	//return 0, errors.New(fmt.Sprintf("value not found for key : [%s]", key))
+	return 0, nil
+}
+
 // GetIntValue get int value of content by key name
 // return error when tag mismatch
 func GetIntValue(key string, nodes []*yaml.Node) (int, error) {
@@ -67,13 +88,17 @@ func GetIntValue(key string, nodes []*yaml.Node) (int, error) {
 		if !validIntNode(v) {
 			return 0, errors.New(fmt.Sprintf("node tag is not int for key : [%s]", key))
 		}
+
 		val, err := strconv.Atoi(v.Value)
 		if err != nil {
 			return 0, err
 		}
+
 		return val, nil
 	}
-	return 0, errors.New(fmt.Sprintf("value not found for key : [%s]", key))
+
+	//return 0, errors.New(fmt.Sprintf("value not found for key : [%s]", key))
+	return 0, nil
 }
 
 // GetStringValue get string value of content by key name

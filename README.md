@@ -44,7 +44,7 @@ go get -u github.com/xuchengeu/invalid
 - `$length.$max` : maximum length of string, valid under constraint `$length`
 - `$key-reg` : a regexp written in string to perform key name validation.It can be used in scenario like checking extensible keys only prefix with ‘x’ in Swagger, `key-reg` valid in type `$obj`
 - `$constraint` : a type constraint for type $arr , valid for type `$arr`. value of constraint could be a valid basic type or map. checkout array example for more reference.
-- `of` : constraint of valid value in enumeration value, valid under type `$str` ,`$int` ,`$float` or `$any`
+- `$of` : constraint of valid value in enumeration value, valid under type `$str` ,`$int` ,`$float` or `$any`
 
 
 ## Example
